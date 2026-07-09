@@ -94,8 +94,9 @@
   .modal-actions .close-btn { background:#333; color:#ccc; }
 
   /* 画像書き出し用（画面には出さないオフスクリーン領域） */
+  /* position:fixed だとスマホのブラウザでビジュアルビューポート基準になり幅が崩れることがあるため absolute にする */
   #imageExport {
-    position:fixed; left:-9999px; top:0; width:900px; background:#000; color:#fff; padding:28px;
+    position:absolute; left:-9999px; top:0; width:900px; background:#000; color:#fff; padding:28px;
   }
   #imageExport h2 { font-size:20px; text-align:center; margin:0 0 4px; }
   #imageExport .date { text-align:center; font-size:12px; color:#888; margin-bottom:18px; }
@@ -456,7 +457,14 @@
     return html;
   }
 
-  document.getElementById("btnImage").addEventListener("click", () => {
+  const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  document.getElementById("btnImage").addEventListener("click", async () => {
+    const canShareFilesApi = !!(navigator.share && navigator.canShare);
+
+    // ポップアップブロック対策：新規タブを開く可能性がある場合はクリック直後（非同期処理の前）に開いておく
+    const preOpenedTab = (isMobileDevice && !canShareFilesApi) ? window.open("", "_blank") : null;
+
     const exportEl = document.getElementById("imageExport");
     const today = new Date();
     const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
@@ -472,17 +480,39 @@
     const originalLabel = btn.innerText;
     btn.innerText = "作成中...";
 
-    html2canvas(exportEl, { backgroundColor: "#000000", scale: 3 }).then(canvas => {
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = "halocon2026-trade-list.png";
-      a.click();
-    }).catch(() => {
+    try {
+      const canvas = await html2canvas(exportEl, { backgroundColor: "#000000", scale: 3 });
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      const file = new File([blob], "halocon2026-trade-list.png", { type: "image/png" });
+
+      if (canShareFilesApi && navigator.canShare({ files: [file] })){
+        try {
+          await navigator.share({ files: [file], title: "モバガチャ　ハロコン2026" });
+        } catch (shareErr) {
+          if (shareErr.name !== "AbortError") throw shareErr;
+        }
+      } else {
+        const url = URL.createObjectURL(blob);
+        if (preOpenedTab){
+          // スマホ：別タブに画像だけを表示し、長押しでカメラロールに保存できるようにする
+          preOpenedTab.location.href = url;
+        } else if (isMobileDevice){
+          window.open(url, "_blank");
+        } else {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "halocon2026-trade-list.png";
+          a.click();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+    } catch (e) {
+      if (preOpenedTab) preOpenedTab.close();
       alert("画像の作成に失敗しました。");
-    }).finally(() => {
+    } finally {
       btn.disabled = false;
       btn.innerText = originalLabel;
-    });
+    }
   });
 
   renderTabs();
