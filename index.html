@@ -128,13 +128,14 @@
 <div id="imageExport"></div>
 
 <script>
+  // グループタブはモーニング娘から始まり結成順に並べる
   const GROUPS = {
-    "BEYOOOOOONDS":     { folder:"BEYOOOOOONDS",     members:["西田汐里","江口紗耶","前田こころ","岡村美波","清野桃々姫","平井美葉","小林萌花","里吉うたの"] },
-    "Juice=Juice":       { folder:"Juice=Juice",       members:["段原瑠々","井上玲音","工藤由愛","松永里愛","有澤一華","入江里咲","江端妃咲","石山咲良","遠藤彩加里","川嶋美楓","林仁愛"] },
-    "OCHA NORMA":        { folder:"OCHA NORMA",        members:["斉藤円香","広本瑠璃","米村姫良々","窪田七海","中山夏月姫","西﨑美空","北原もも","筒井澪心"] },
-    "つばきファクトリー": { folder:"つばきファクトリー", members:["谷本安美","小野瑞歩","小野田紗栞","秋山眞緒","河西結心","福田真琳","豫風瑠乃","石井泉羽","村田結生","土居楓奏","西村乙輝"] },
-    "アンジュルム":       { folder:"アンジュルム",       members:["伊勢鈴蘭","為永幸音","橋迫鈴","川名凜","松本わかな","平山遊季","下井谷幸穂","後藤花","長野桃羽"] },
     "モーニング娘":       { folder:"モーニング娘",       members:["野中美希","小田さくら","岡村ほまれ","山﨑愛生","櫻井梨央","井上春華","弓桁朱琴","杉原明紗"] },
+    "アンジュルム":       { folder:"アンジュルム",       members:["伊勢鈴蘭","為永幸音","橋迫鈴","川名凜","松本わかな","平山遊季","下井谷幸穂","後藤花","長野桃羽"] },
+    "Juice=Juice":       { folder:"Juice=Juice",       members:["段原瑠々","井上玲音","工藤由愛","松永里愛","有澤一華","入江里咲","江端妃咲","石山咲良","遠藤彩加里","川嶋美楓","林仁愛"] },
+    "つばきファクトリー": { folder:"つばきファクトリー", members:["谷本安美","小野瑞歩","小野田紗栞","秋山眞緒","河西結心","福田真琳","豫風瑠乃","石井泉羽","村田結生","土居楓奏","西村乙輝"] },
+    "BEYOOOOOONDS":     { folder:"BEYOOOOOONDS",     members:["西田汐里","江口紗耶","前田こころ","岡村美波","清野桃々姫","平井美葉","小林萌花","里吉うたの"] },
+    "OCHA NORMA":        { folder:"OCHA NORMA",        members:["斉藤円香","広本瑠璃","米村姫良々","窪田七海","中山夏月姫","西﨑美空","北原もも","筒井澪心"] },
     "ロージークロニクル": { folder:"ロージークロニクル", members:["橋田歩果","吉田姫杷","小野田華凜","村越彩菜","植村葉純","松原ユリヤ","島川波菜","上村麗菜","相馬優芽"] }
   };
 
@@ -148,11 +149,10 @@
   function buildItems(groupKey){
     const g = GROUPS[groupKey];
     const list = [];
-    // 元画像ファイル名の通し番号（001, 002, ...）順にメンバーごとへまとめて並べる
-    const typesByRarityAsc = [...ITEM_TYPES].reverse(); // N, R1, R2, SR
-    g.members.forEach((member, i) => {
-      const num = String(i + 1).padStart(3, "0");
-      typesByRarityAsc.forEach(t => {
+    // レアリティ（SR→R2→R1→N）＞名前（元画像の通し番号順）で並べる
+    ITEM_TYPES.forEach(t => {
+      g.members.forEach((member, i) => {
+        const num = String(i + 1).padStart(3, "0");
         const file = `[${t.rarity}]${t.name}${num}${member}.png`;
         list.push({ rarity:t.rarity, itemName:t.name, member, file, path:`${g.folder}/${file}` });
       });
