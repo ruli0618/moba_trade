@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ハロ！コン2026 トレードリスト作成</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Hiragino Kaku Gothic ProN", Meiryo, Arial, sans-serif; background:#000; color:#fff; margin:0; padding:16px; padding-bottom:180px; }
+  h1 { font-size:18px; text-align:center; margin:4px 0 2px; }
+  .sub { text-align:center; font-size:12px; color:#aaa; margin-bottom:14px; }
+
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:12px; }
+  .tabs button {
+    background:#1a1a1a; color:#ccc; border:1px solid #444; border-radius:16px;
+    padding:6px 12px; font-size:12px; cursor:pointer;
+  }
+  .tabs button.active { background:#fff; color:#000; border-color:#fff; font-weight:bold; }
+
+  .counts { text-align:center; font-size:12px; color:#aaa; margin-bottom:12px; }
+  .counts .give-num { color:#6fdc8c; font-weight:bold; }
+  .counts .want-num { color:#7ab8ff; font-weight:bold; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:10px; max-width:760px; margin:0 auto 24px; }
+  .card { text-align:center; cursor:pointer; user-select:none; }
+  .thumb {
+    position:relative; width:100%; aspect-ratio:1/1; border-radius:8px;
+    background-color:#111; background-size:contain; background-position:center; background-repeat:no-repeat;
+    border:2px solid #333; transition:border-color .15s;
+  }
+  .card.state-give .thumb { border-color:#3ecf67; box-shadow:0 0 8px rgba(62,207,103,.5); }
+  .card.state-want .thumb { border-color:#4a9eff; box-shadow:0 0 8px rgba(74,158,255,.5); }
+  .rarity-badge {
+    position:absolute; top:2px; left:2px; font-size:9px; font-weight:bold; padding:1px 5px; border-radius:6px;
+    background:rgba(0,0,0,.75); color:#fff;
+  }
+  .rarity-badge.rarity-SR { color:#ffd24a; }
+  .rarity-badge.rarity-R1, .rarity-badge.rarity-R2 { color:#7ab8ff; }
+  .rarity-badge.rarity-N { color:#ccc; }
+  .state-badge {
+    position:absolute; bottom:2px; right:2px; font-size:10px; font-weight:bold; padding:1px 6px; border-radius:6px;
+    color:#fff; display:none;
+  }
+  .card.state-give .state-badge { display:inline-block; background:#3ecf67; }
+  .card.state-give .state-badge::after { content:"譲"; }
+  .card.state-want .state-badge { display:inline-block; background:#4a9eff; }
+  .card.state-want .state-badge::after { content:"求"; }
+  .name { font-size:10px; margin-top:4px; line-height:1.3; color:#eee; }
+
+  .bottom-bar {
+    position:fixed; bottom:0; left:0; width:100%; background:rgba(10,10,10,.97);
+    border-top:1px solid #333; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    display:flex; flex-wrap:wrap; gap:8px; justify-content:center; z-index:50;
+  }
+  .bottom-bar button {
+    padding:9px 14px; font-size:13px; border-radius:8px; border:none; cursor:pointer; font-weight:bold;
+  }
+  #btnText { background:#fff; color:#000; }
+  #btnImage { background:#4a9eff; color:#fff; }
+  #btnReset { background:#333; color:#ccc; }
+
+  #resultModal {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.85);
+    align-items:center; justify-content:center; z-index:200; padding:16px;
+  }
+  #resultModal .modal-box {
+    background:#141414; border-radius:10px; padding:18px; width:100%; max-width:480px;
+    max-height:85vh; overflow-y:auto;
+  }
+  #resultModal h3 { margin:0 0 10px; font-size:15px; }
+  #resultText {
+    width:100%; height:220px; background:#000; color:#8fe0a4; font-size:12px;
+    border:1px solid #444; border-radius:6px; padding:8px; resize:vertical; box-sizing:border-box;
+    white-space:pre-wrap;
+  }
+  .modal-actions { display:flex; gap:8px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap; }
+  .modal-actions button { padding:8px 14px; font-size:13px; border-radius:6px; border:none; cursor:pointer; }
+  .modal-actions .copy-btn { background:#fff; color:#000; }
+  .modal-actions .close-btn { background:#333; color:#ccc; }
+
+  /* 画像書き出し用（画面には出さないオフスクリーン領域） */
+  #imageExport {
+    position:fixed; left:-9999px; top:0; width:640px; background:#000; color:#fff; padding:24px;
+  }
+  #imageExport h2 { font-size:18px; text-align:center; margin:0 0 4px; }
+  #imageExport .date { text-align:center; font-size:11px; color:#888; margin-bottom:16px; }
+  #imageExport .section-title { font-size:14px; font-weight:bold; margin:16px 0 8px; padding-left:6px; border-left:4px solid #fff; }
+  #imageExport .section-title.give { border-color:#3ecf67; color:#3ecf67; }
+  #imageExport .section-title.want { border-color:#4a9eff; color:#4a9eff; }
+  #imageExport .group-name { font-size:12px; color:#ccc; margin:10px 0 6px; }
+  #imageExport .ex-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:8px; }
+  #imageExport .ex-card { text-align:center; }
+  #imageExport .ex-thumb {
+    width:100%; aspect-ratio:1/1; border-radius:6px; background-color:#111;
+    background-size:contain; background-position:center; background-repeat:no-repeat;
+  }
+  #imageExport .ex-name { font-size:9px; margin-top:3px; color:#ddd; line-height:1.25; }
+  #imageExport .empty { text-align:center; color:#666; font-size:12px; padding:10px 0; }
+</style>
+</head>
+<body>
+
+<h1>✨ハロ！コン2026 トレードリスト作成✨</h1>
+<div class="sub">カードをタップ：未設定 → 譲 → 求 → 未設定　の順で切り替わります</div>
+
+<div class="tabs" id="tabs"></div>
+<div class="counts" id="counts"></div>
+<div class="grid" id="grid"></div>
+
+<div class="bottom-bar">
+  <button id="btnText">📋 テキストで作成</button>
+  <button id="btnImage">🖼 画像で保存</button>
+  <button id="btnReset">リセット</button>
+</div>
+
+<div id="resultModal">
+  <div class="modal-box">
+    <h3>譲/求リスト（テキスト）</h3>
+    <textarea id="resultText" readonly></textarea>
+    <div class="modal-actions">
+      <button class="copy-btn" id="copyTextBtn">コピー</button>
+      <button class="close-btn" id="closeModalBtn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="imageExport"></div>
+
+<script>
+  const GROUPS = {
+    "BEYOOOOOONDS":     { folder:"BEYOOOOOONDS",     members:["西田汐里","江口紗耶","前田こころ","岡村美波","清野桃々姫","平井美葉","小林萌花","里吉うたの"] },
+    "Juice=Juice":       { folder:"Juice=Juice",       members:["段原瑠々","井上玲音","工藤由愛","松永里愛","有澤一華","入江里咲","江端妃咲","石山咲良","遠藤彩加里","川嶋美楓","林仁愛"] },
+    "OCHA NORMA":        { folder:"OCHA NORMA",        members:["斉藤円香","広本瑠璃","米村姫良々","窪田七海","中山夏月姫","西﨑美空","北原もも","筒井澪心"] },
+    "つばきファクトリー": { folder:"つばきファクトリー", members:["谷本安美","小野瑞歩","小野田紗栞","秋山眞緒","河西結心","福田真琳","豫風瑠乃","石井泉羽","村田結生","土居楓奏","西村乙輝"] },
+    "アンジュルム":       { folder:"アンジュルム",       members:["伊勢鈴蘭","為永幸音","橋迫鈴","川名凜","松本わかな","平山遊季","下井谷幸穂","後藤花","長野桃羽"] },
+    "モーニング娘":       { folder:"モーニング娘",       members:["野中美希","小田さくら","岡村ほまれ","山﨑愛生","櫻井梨央","井上春華","弓桁朱琴","杉原明紗"] },
+    "ロージークロニクル": { folder:"ロージークロニクル", members:["橋田歩果","吉田姫杷","小野田華凜","村越彩菜","植村葉純","松原ユリヤ","島川波菜","上村麗菜","相馬優芽"] }
+  };
+
+  const ITEM_TYPES = [
+    { rarity:"SR", name:"ソロうちわ" },
+    { rarity:"R2", name:"ミニ巾着" },
+    { rarity:"R1", name:"目印マーカー" },
+    { rarity:"N",  name:"缶バッジ" }
+  ];
+
+  function buildItems(groupKey){
+    const g = GROUPS[groupKey];
+    const list = [];
+    ITEM_TYPES.forEach(t => {
+      g.members.forEach((member, i) => {
+        const num = String(i + 1).padStart(3, "0");
+        const file = `[${t.rarity}]${t.name}${num}${member}.png`;
+        list.push({ rarity:t.rarity, itemName:t.name, member, file, path:`${g.folder}/${file}` });
+      });
+    });
+    return list;
+  }
+
+  const ITEMS_BY_GROUP = {};
+  Object.keys(GROUPS).forEach(k => { ITEMS_BY_GROUP[k] = buildItems(k); });
+
+  function encodePath(path){
+    return path.split("/").map(encodeURIComponent).join("/");
+  }
+
+  const STORAGE_KEY = "halocon2026-trade-list";
+
+  function loadState(){
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved && typeof saved === "object") return saved;
+    } catch (e) {}
+    return {};
+  }
+
+  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  let state = loadState(); // key: "グループ名::ファイル名" -> "give" | "want"
+  let currentGroup = Object.keys(GROUPS)[0];
+
+  const tabsEl   = document.getElementById("tabs");
+  const gridEl   = document.getElementById("grid");
+  const countsEl = document.getElementById("counts");
+
+  function keyOf(groupKey, file){ return `${groupKey}::${file}`; }
+
+  function renderTabs(){
+    tabsEl.innerHTML = Object.keys(GROUPS).map(g =>
+      `<button data-group="${g}" class="${g === currentGroup ? "active" : ""}">${g}</button>`
+    ).join("");
+    tabsEl.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentGroup = btn.dataset.group;
+        renderTabs();
+        renderGrid();
+        renderCounts();
+      });
+    });
+  }
+
+  function renderGrid(){
+    const items = ITEMS_BY_GROUP[currentGroup];
+    gridEl.innerHTML = items.map(item => {
+      const k = keyOf(currentGroup, item.file);
+      const st = state[k] || "none";
+      return `<div class="card state-${st}" data-key="${k}">
+        <div class="thumb" style="background-image:url('${encodePath(item.path)}')">
+          <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+          <span class="state-badge"></span>
+        </div>
+        <div class="name">${item.member}<br>${item.itemName}</div>
+      </div>`;
+    }).join("");
+
+    gridEl.querySelectorAll(".card").forEach(card => {
+      card.addEventListener("click", () => {
+        const k = card.dataset.key;
+        const cur = state[k] || "none";
+        const next = cur === "none" ? "give" : cur === "give" ? "want" : "none";
+        if (next === "none") delete state[k]; else state[k] = next;
+        saveState();
+        card.className = `card state-${next}`;
+        renderCounts();
+      });
+    });
+  }
+
+  function renderCounts(){
+    let giveTotal = 0, wantTotal = 0, giveHere = 0, wantHere = 0;
+    Object.entries(state).forEach(([k, v]) => {
+      if (v === "give") giveTotal++; else if (v === "want") wantTotal++;
+      if (k.startsWith(currentGroup + "::")){
+        if (v === "give") giveHere++; else if (v === "want") wantHere++;
+      }
+    });
+    countsEl.innerHTML =
+      `このグループ　譲:<span class="give-num">${giveHere}</span>　求:<span class="want-num">${wantHere}</span>　` +
+      `｜　全体　譲:<span class="give-num">${giveTotal}</span>　求:<span class="want-num">${wantTotal}</span>`;
+  }
+
+  function collectByGroup(kind){
+    const result = {}; // groupKey -> [item]
+    Object.keys(GROUPS).forEach(g => {
+      const list = ITEMS_BY_GROUP[g].filter(item => state[keyOf(g, item.file)] === kind);
+      if (list.length) result[g] = list;
+    });
+    return result;
+  }
+
+  function generateText(){
+    const gives = collectByGroup("give");
+    const wants = collectByGroup("want");
+    const groupsWithData = [...new Set([...Object.keys(gives), ...Object.keys(wants)])];
+
+    if (groupsWithData.length === 0){
+      return "まだ譲・求のカードが選択されていません。\nカード画像をタップして選んでください。";
+    }
+
+    const lines = ["【ハロ！コン2026 トレードリスト】", ""];
+    // GROUPS の並び順で出力する
+    Object.keys(GROUPS).forEach(g => {
+      if (!gives[g] && !wants[g]) return;
+      lines.push(`■${g}`);
+      if (gives[g]) lines.push("譲）" + gives[g].map(it => `${it.rarity} ${it.member}${it.itemName}`).join("、"));
+      if (wants[g]) lines.push("求）" + wants[g].map(it => `${it.rarity} ${it.member}${it.itemName}`).join("、"));
+      lines.push("");
+    });
+    lines.push("#ハロコン2026 #ハロプロトレード");
+    return lines.join("\n");
+  }
+
+  document.getElementById("btnText").addEventListener("click", () => {
+    document.getElementById("resultText").value = generateText();
+    document.getElementById("resultModal").style.display = "flex";
+  });
+
+  document.getElementById("copyTextBtn").addEventListener("click", () => {
+    const ta = document.getElementById("resultText");
+    ta.select();
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value);
+    } else {
+      document.execCommand("copy");
+    }
+  });
+
+  document.getElementById("closeModalBtn").addEventListener("click", () => {
+    document.getElementById("resultModal").style.display = "none";
+  });
+
+  document.getElementById("btnReset").addEventListener("click", () => {
+    if (!confirm("すべてのグループの譲・求の選択をリセットします。よろしいですか？")) return;
+    state = {};
+    saveState();
+    renderGrid();
+    renderCounts();
+  });
+
+  function buildExportSection(kind, label, cls){
+    const byGroup = collectByGroup(kind);
+    const groupsWithData = Object.keys(GROUPS).filter(g => byGroup[g]);
+    let html = `<div class="section-title ${cls}">${label}</div>`;
+    if (groupsWithData.length === 0){
+      html += `<div class="empty">（なし）</div>`;
+      return html;
+    }
+    groupsWithData.forEach(g => {
+      html += `<div class="group-name">${g}</div><div class="ex-grid">`;
+      byGroup[g].forEach(it => {
+        html += `<div class="ex-card">
+          <div class="ex-thumb" style="background-image:url('${encodePath(it.path)}')"></div>
+          <div class="ex-name">${it.rarity} ${it.member}<br>${it.itemName}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    return html;
+  }
+
+  document.getElementById("btnImage").addEventListener("click", () => {
+    const exportEl = document.getElementById("imageExport");
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+
+    exportEl.innerHTML =
+      `<h2>✨ハロ！コン2026 トレードリスト✨</h2>` +
+      `<div class="date">${dateStr}</div>` +
+      buildExportSection("give", "譲ります", "give") +
+      buildExportSection("want", "求めます", "want");
+
+    const btn = document.getElementById("btnImage");
+    btn.disabled = true;
+    const originalLabel = btn.innerText;
+    btn.innerText = "作成中...";
+
+    html2canvas(exportEl, { backgroundColor: "#000000", scale: 2 }).then(canvas => {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "halocon2026-trade-list.png";
+      a.click();
+    }).catch(() => {
+      alert("画像の作成に失敗しました。");
+    }).finally(() => {
+      btn.disabled = false;
+      btn.innerText = originalLabel;
+    });
+  });
+
+  renderTabs();
+  renderGrid();
+  renderCounts();
+</script>
+
+</body>
+</html>
