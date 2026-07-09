@@ -480,6 +480,31 @@
   let lastExportBlob = null;
   let lastExportUrl = null;
 
+  // iOSなどモバイルブラウザはcanvasの縦横サイズ・総ピクセル数に上限があり、
+  // 選んだ点数が多く書き出し画像が縦長になるとscale:3のままでは上限を超えて
+  // 一部が真っ白/欠けた状態になることがある。上限内に収まるようscaleを自動で下げる。
+  const MAX_CANVAS_DIMENSION = 4096;
+  const MAX_CANVAS_AREA = 16 * 1024 * 1024;
+
+  function computeSafeScale(widthPx, heightPx, desiredScale){
+    let scale = Math.min(desiredScale, MAX_CANVAS_DIMENSION / widthPx, MAX_CANVAS_DIMENSION / heightPx);
+    if (widthPx * heightPx * scale * scale > MAX_CANVAS_AREA){
+      scale = Math.sqrt(MAX_CANVAS_AREA / (widthPx * heightPx));
+    }
+    // 極端に選択数が多い場合はcanvasサイズ上限を優先し、scaleが1未満になっても構わない
+    return Math.max(0.1, Math.min(desiredScale, scale));
+  }
+
+  // html2canvasは描画前に画像の読み込み完了を待つが、モバイル回線が遅いと
+  // 間に合わず画像が欠けることがあるため、明示的に全画像の読み込みを待つ。
+  function waitForImages(container){
+    const imgs = Array.from(container.querySelectorAll("img"));
+    return Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve;
+    })));
+  }
+
   document.getElementById("btnImage").addEventListener("click", async () => {
     const exportEl = document.getElementById("imageExport");
     const today = new Date();
@@ -497,7 +522,9 @@
     btn.innerText = "作成中...";
 
     try {
-      const canvas = await html2canvas(exportEl, { backgroundColor: "#ffe1f0", scale: 3 });
+      await waitForImages(exportEl);
+      const scale = computeSafeScale(exportEl.offsetWidth, exportEl.offsetHeight, 3);
+      const canvas = await html2canvas(exportEl, { backgroundColor: "#ffe1f0", scale });
       const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
 
       if (lastExportUrl) URL.revokeObjectURL(lastExportUrl);
