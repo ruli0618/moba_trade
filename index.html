@@ -46,7 +46,18 @@
   .card.state-give .state-badge::after { content:"譲"; }
   .card.state-want .state-badge { display:inline-block; background:#4a9eff; }
   .card.state-want .state-badge::after { content:"求"; }
+  .qty-badge {
+    position:absolute; bottom:2px; left:2px; font-size:9px; font-weight:bold; padding:1px 5px; border-radius:6px;
+    background:rgba(0,0,0,.75); color:#ffd24a;
+  }
   .name { font-size:10px; margin-top:4px; line-height:1.3; color:#eee; }
+  .qty-controls { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; }
+  .qty-btn {
+    width:20px; height:20px; line-height:18px; border-radius:50%; border:1px solid #555;
+    background:#222; color:#fff; font-size:13px; cursor:pointer; padding:0;
+  }
+  .qty-btn:active { background:#444; }
+  .qty-val { font-size:11px; min-width:16px; text-align:center; color:#fff; }
 
   .bottom-bar {
     position:fixed; bottom:0; left:0; width:100%; background:rgba(10,10,10,.97);
@@ -81,28 +92,32 @@
 
   /* 画像書き出し用（画面には出さないオフスクリーン領域） */
   #imageExport {
-    position:fixed; left:-9999px; top:0; width:640px; background:#000; color:#fff; padding:24px;
+    position:fixed; left:-9999px; top:0; width:900px; background:#000; color:#fff; padding:28px;
   }
-  #imageExport h2 { font-size:18px; text-align:center; margin:0 0 4px; }
-  #imageExport .date { text-align:center; font-size:11px; color:#888; margin-bottom:16px; }
-  #imageExport .section-title { font-size:14px; font-weight:bold; margin:16px 0 8px; padding-left:6px; border-left:4px solid #fff; }
+  #imageExport h2 { font-size:20px; text-align:center; margin:0 0 4px; }
+  #imageExport .date { text-align:center; font-size:12px; color:#888; margin-bottom:18px; }
+  #imageExport .section-title { font-size:16px; font-weight:bold; margin:18px 0 10px; padding-left:8px; border-left:4px solid #fff; }
   #imageExport .section-title.give { border-color:#3ecf67; color:#3ecf67; }
   #imageExport .section-title.want { border-color:#4a9eff; color:#4a9eff; }
-  #imageExport .group-name { font-size:12px; color:#ccc; margin:10px 0 6px; }
-  #imageExport .ex-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:8px; }
+  #imageExport .group-name { font-size:13px; color:#ccc; margin:12px 0 8px; }
+  #imageExport .ex-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
   #imageExport .ex-card { text-align:center; }
-  #imageExport .ex-thumb {
-    width:100%; aspect-ratio:1/1; border-radius:6px; background-color:#111;
-    background-size:contain; background-position:center; background-repeat:no-repeat;
+  #imageExport .ex-thumb-wrap {
+    position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background-color:#111;
   }
-  #imageExport .ex-name { font-size:9px; margin-top:3px; color:#ddd; line-height:1.25; }
+  #imageExport .ex-thumb { width:100%; height:100%; object-fit:contain; display:block; }
+  #imageExport .ex-qty-badge {
+    position:absolute; top:4px; right:4px; background:rgba(0,0,0,.8); color:#ffd24a;
+    font-size:12px; font-weight:bold; padding:2px 7px; border-radius:6px;
+  }
+  #imageExport .ex-name { font-size:11px; margin-top:5px; color:#ddd; line-height:1.3; }
   #imageExport .empty { text-align:center; color:#666; font-size:12px; padding:10px 0; }
 </style>
 </head>
 <body>
 
 <h1>✨ハロ！コン2026 トレードリスト作成✨</h1>
-<div class="sub">カードをタップ：未設定 → 譲 → 求 → 未設定　の順で切り替わります</div>
+<div class="sub">カードをタップ：未設定 → 譲 → 求 → 未設定　の順で切り替わります（＋／－で個数を設定できます）</div>
 
 <div class="tabs" id="tabs"></div>
 <div class="counts" id="counts"></div>
@@ -177,14 +192,20 @@
   function loadState(){
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (saved && typeof saved === "object") return saved;
+      if (saved && typeof saved === "object"){
+        // 過去バージョン（値が "give"/"want" の文字列）を { type, qty:1 } へ変換する
+        Object.keys(saved).forEach(k => {
+          if (typeof saved[k] === "string") saved[k] = { type: saved[k], qty: 1 };
+        });
+        return saved;
+      }
     } catch (e) {}
     return {};
   }
 
   function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
-  let state = loadState(); // key: "グループ名::ファイル名" -> "give" | "want"
+  let state = loadState(); // key: "グループ名::ファイル名" -> { type:"give"|"want", qty:number }
   let currentGroup = Object.keys(GROUPS)[0];
 
   const tabsEl   = document.getElementById("tabs");
@@ -192,6 +213,30 @@
   const countsEl = document.getElementById("counts");
 
   function keyOf(groupKey, file){ return `${groupKey}::${file}`; }
+
+  function getState(k){ return state[k] || { type:"none", qty:0 }; }
+
+  function setState(k, type, qty){
+    if (type === "none" || qty <= 0) delete state[k];
+    else state[k] = { type, qty };
+    saveState();
+  }
+
+  function cycleState(k){
+    const cur = getState(k);
+    const next = cur.type === "none" ? "give" : cur.type === "give" ? "want" : "none";
+    setState(k, next, next === "none" ? 0 : 1);
+    renderGrid();
+    renderCounts();
+  }
+
+  function changeQty(k, delta){
+    const cur = getState(k);
+    if (cur.type === "none") return;
+    setState(k, cur.type, cur.qty + delta);
+    renderGrid();
+    renderCounts();
+  }
 
   function renderTabs(){
     tabsEl.innerHTML = Object.keys(GROUPS).map(g =>
@@ -211,35 +256,43 @@
     const items = ITEMS_BY_GROUP[currentGroup];
     gridEl.innerHTML = items.map(item => {
       const k = keyOf(currentGroup, item.file);
-      const st = state[k] || "none";
-      return `<div class="card state-${st}" data-key="${k}">
+      const st = getState(k);
+      const qtyControls = st.type !== "none" ? `
+        <div class="qty-controls">
+          <button class="qty-btn qty-minus" data-key="${k}">−</button>
+          <span class="qty-val">${st.qty}</span>
+          <button class="qty-btn qty-plus" data-key="${k}">＋</button>
+        </div>` : "";
+      const qtyBadge = st.qty > 1 ? `<span class="qty-badge">×${st.qty}</span>` : "";
+      return `<div class="card state-${st.type}" data-key="${k}">
         <div class="thumb" style="background-image:url('${encodePath(item.path)}')">
           <span class="rarity-badge rarity-${item.rarity}">${displayRarity(item.rarity)}</span>
           <span class="state-badge"></span>
+          ${qtyBadge}
         </div>
         <div class="name">${item.member}<br>${item.itemName}</div>
+        ${qtyControls}
       </div>`;
     }).join("");
-
-    gridEl.querySelectorAll(".card").forEach(card => {
-      card.addEventListener("click", () => {
-        const k = card.dataset.key;
-        const cur = state[k] || "none";
-        const next = cur === "none" ? "give" : cur === "give" ? "want" : "none";
-        if (next === "none") delete state[k]; else state[k] = next;
-        saveState();
-        card.className = `card state-${next}`;
-        renderCounts();
-      });
-    });
   }
+
+  gridEl.addEventListener("click", (e) => {
+    const minusBtn = e.target.closest(".qty-minus");
+    const plusBtn  = e.target.closest(".qty-plus");
+    const card     = e.target.closest(".card");
+    if (!card) return;
+    const k = card.dataset.key;
+    if (minusBtn){ changeQty(k, -1); return; }
+    if (plusBtn){ changeQty(k, 1); return; }
+    cycleState(k);
+  });
 
   function renderCounts(){
     let giveTotal = 0, wantTotal = 0, giveHere = 0, wantHere = 0;
-    Object.entries(state).forEach(([k, v]) => {
-      if (v === "give") giveTotal++; else if (v === "want") wantTotal++;
+    Object.entries(state).forEach(([k, s]) => {
+      if (s.type === "give") giveTotal += s.qty; else if (s.type === "want") wantTotal += s.qty;
       if (k.startsWith(currentGroup + "::")){
-        if (v === "give") giveHere++; else if (v === "want") wantHere++;
+        if (s.type === "give") giveHere += s.qty; else if (s.type === "want") wantHere += s.qty;
       }
     });
     countsEl.innerHTML =
@@ -248,12 +301,19 @@
   }
 
   function collectByGroup(kind){
-    const result = {}; // groupKey -> [item]
+    const result = {}; // groupKey -> [item(+qty)]
     Object.keys(GROUPS).forEach(g => {
-      const list = ITEMS_BY_GROUP[g].filter(item => state[keyOf(g, item.file)] === kind);
+      const list = ITEMS_BY_GROUP[g]
+        .map(item => ({ item, s: getState(keyOf(g, item.file)) }))
+        .filter(({ s }) => s.type === kind)
+        .map(({ item, s }) => ({ ...item, qty: s.qty }));
       if (list.length) result[g] = list;
     });
     return result;
+  }
+
+  function itemText(it){
+    return `${displayRarity(it.rarity)} ${it.member}${it.itemName}${it.qty > 1 ? "×" + it.qty : ""}`;
   }
 
   function generateText(){
@@ -265,17 +325,22 @@
       return "まだ譲・求のカードが選択されていません。\nカード画像をタップして選んでください。";
     }
 
-    const lines = ["【ハロ！コン2026 トレードリスト】", ""];
+    const lines = ["モバガチャ　ハロコン2026", ""];
     // GROUPS の並び順で出力する
     Object.keys(GROUPS).forEach(g => {
       if (!gives[g] && !wants[g]) return;
       lines.push(`■${g}`);
-      if (gives[g]) lines.push("譲）" + gives[g].map(it => `${displayRarity(it.rarity)} ${it.member}${it.itemName}`).join("、"));
-      if (wants[g]) lines.push("求）" + wants[g].map(it => `${displayRarity(it.rarity)} ${it.member}${it.itemName}`).join("、"));
+      if (gives[g]){
+        lines.push("譲)");
+        lines.push(gives[g].map(itemText).join(" "));
+      }
+      if (wants[g]){
+        lines.push("求)");
+        lines.push(wants[g].map(itemText).join(" "));
+      }
       lines.push("");
     });
-    lines.push("#ハロコン2026 #ハロプロトレード");
-    return lines.join("\n");
+    return lines.join("\n").trim();
   }
 
   document.getElementById("btnText").addEventListener("click", () => {
@@ -316,8 +381,12 @@
     groupsWithData.forEach(g => {
       html += `<div class="group-name">${g}</div><div class="ex-grid">`;
       byGroup[g].forEach(it => {
+        const qtyBadge = it.qty > 1 ? `<span class="ex-qty-badge">×${it.qty}</span>` : "";
         html += `<div class="ex-card">
-          <div class="ex-thumb" style="background-image:url('${encodePath(it.path)}')"></div>
+          <div class="ex-thumb-wrap">
+            <img class="ex-thumb" src="${encodePath(it.path)}" alt="">
+            ${qtyBadge}
+          </div>
           <div class="ex-name">${displayRarity(it.rarity)} ${it.member}<br>${it.itemName}</div>
         </div>`;
       });
@@ -342,7 +411,7 @@
     const originalLabel = btn.innerText;
     btn.innerText = "作成中...";
 
-    html2canvas(exportEl, { backgroundColor: "#000000", scale: 2 }).then(canvas => {
+    html2canvas(exportEl, { backgroundColor: "#000000", scale: 3 }).then(canvas => {
       const a = document.createElement("a");
       a.href = canvas.toDataURL("image/png");
       a.download = "halocon2026-trade-list.png";
