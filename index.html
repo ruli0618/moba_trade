@@ -93,6 +93,7 @@
   .modal-actions { display:flex; gap:8px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap; }
   .modal-actions button { padding:8px 14px; font-size:13px; border-radius:6px; border:none; cursor:pointer; }
   .modal-actions .copy-btn { background:#fff; color:#000; }
+  .modal-actions .tweet-btn { background:#000; color:#fff; }
   .modal-actions .close-btn { background:#333; color:#ccc; }
 
   /* 画像書き出し用（画面には出さないオフスクリーン領域） */
@@ -151,6 +152,7 @@
     <textarea id="resultText" readonly></textarea>
     <div class="modal-actions">
       <button class="copy-btn" id="copyTextBtn">コピー</button>
+      <button class="tweet-btn" id="tweetBtn">𝕏に投稿</button>
       <button class="close-btn" id="closeModalBtn">閉じる</button>
     </div>
   </div>
@@ -425,6 +427,12 @@
     } else {
       document.execCommand("copy");
     }
+  });
+
+  document.getElementById("tweetBtn").addEventListener("click", () => {
+    const text = document.getElementById("resultText").value;
+    const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
+    window.open(url, "_blank", "noopener,noreferrer");
   });
 
   document.getElementById("closeModalBtn").addEventListener("click", () => {
