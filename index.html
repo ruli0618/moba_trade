@@ -69,7 +69,8 @@
   }
   #btnText { background:#fff; color:#000; }
   #btnImage { background:#4a9eff; color:#fff; }
-  #btnReset { background:#333; color:#ccc; }
+  #btnResetGroup { background:#333; color:#ccc; }
+  #btnResetAll { background:#3a1414; color:#ff8a8a; }
 
   #resultModal {
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.85);
@@ -80,6 +81,8 @@
     max-height:85vh; overflow-y:auto;
   }
   #resultModal h3 { margin:0 0 10px; font-size:15px; }
+  .name-mode-select { display:flex; gap:16px; margin-bottom:10px; font-size:13px; color:#ccc; }
+  .name-mode-select label { display:flex; align-items:center; gap:4px; cursor:pointer; }
   #resultText {
     width:100%; height:220px; background:#000; color:#8fe0a4; font-size:12px;
     border:1px solid #444; border-radius:6px; padding:8px; resize:vertical; box-sizing:border-box;
@@ -126,12 +129,17 @@
 <div class="bottom-bar">
   <button id="btnText">📋 テキストで作成</button>
   <button id="btnImage">🖼 画像で保存</button>
-  <button id="btnReset">リセット</button>
+  <button id="btnResetGroup">このグループをリセット</button>
+  <button id="btnResetAll">全てリセット</button>
 </div>
 
 <div id="resultModal">
   <div class="modal-box">
     <h3>譲/求リスト（テキスト）</h3>
+    <div class="name-mode-select">
+      <label><input type="radio" name="nameMode" value="full" checked> フルネーム</label>
+      <label><input type="radio" name="nameMode" value="surname"> 苗字のみ</label>
+    </div>
     <textarea id="resultText" readonly></textarea>
     <div class="modal-actions">
       <button class="copy-btn" id="copyTextBtn">コピー</button>
@@ -185,6 +193,30 @@
   // 内部の並び替え・状態管理には "R1"/"R2" のまま使うが、画面表示では数字を省いて "R" とする
   function displayRarity(rarity){
     return rarity.replace(/^R[12]$/, "R");
+  }
+
+  // テキスト作成で「苗字のみ」を選んだ時に使う、フルネーム→苗字の対応表
+  const SURNAME_MAP = {
+    "野中美希":"野中", "小田さくら":"小田", "岡村ほまれ":"岡村", "山﨑愛生":"山﨑",
+    "櫻井梨央":"櫻井", "井上春華":"井上", "弓桁朱琴":"弓桁", "杉原明紗":"杉原",
+    "伊勢鈴蘭":"伊勢", "為永幸音":"為永", "橋迫鈴":"橋迫", "川名凜":"川名",
+    "松本わかな":"松本", "平山遊季":"平山", "下井谷幸穂":"下井谷", "後藤花":"後藤", "長野桃羽":"長野",
+    "段原瑠々":"段原", "井上玲音":"井上", "工藤由愛":"工藤", "松永里愛":"松永",
+    "有澤一華":"有澤", "入江里咲":"入江", "江端妃咲":"江端", "石山咲良":"石山",
+    "遠藤彩加里":"遠藤", "川嶋美楓":"川嶋", "林仁愛":"林",
+    "谷本安美":"谷本", "小野瑞歩":"小野", "小野田紗栞":"小野田", "秋山眞緒":"秋山",
+    "河西結心":"河西", "福田真琳":"福田", "豫風瑠乃":"豫風", "石井泉羽":"石井",
+    "村田結生":"村田", "土居楓奏":"土居", "西村乙輝":"西村",
+    "西田汐里":"西田", "江口紗耶":"江口", "前田こころ":"前田", "岡村美波":"岡村",
+    "清野桃々姫":"清野", "平井美葉":"平井", "小林萌花":"小林", "里吉うたの":"里吉",
+    "斉藤円香":"斉藤", "広本瑠璃":"広本", "米村姫良々":"米村", "窪田七海":"窪田",
+    "中山夏月姫":"中山", "西﨑美空":"西﨑", "北原もも":"北原", "筒井澪心":"筒井",
+    "橋田歩果":"橋田", "吉田姫杷":"吉田", "小野田華凜":"小野田", "村越彩菜":"村越",
+    "植村葉純":"植村", "松原ユリヤ":"松原", "島川波菜":"島川", "上村麗菜":"上村", "相馬優芽":"相馬"
+  };
+
+  function displayMember(member, nameMode){
+    return nameMode === "surname" ? (SURNAME_MAP[member] || member) : member;
   }
 
   const STORAGE_KEY = "halocon2026-trade-list";
@@ -312,11 +344,11 @@
     return result;
   }
 
-  function itemText(it){
-    return `${displayRarity(it.rarity)} ${it.member}${it.itemName}${it.qty > 1 ? "×" + it.qty : ""}`;
+  function itemText(it, nameMode){
+    return `${displayRarity(it.rarity)} ${displayMember(it.member, nameMode)}${it.itemName}${it.qty > 1 ? "×" + it.qty : ""}`;
   }
 
-  function generateText(){
+  function generateText(nameMode){
     const gives = collectByGroup("give");
     const wants = collectByGroup("want");
     const groupsWithData = [...new Set([...Object.keys(gives), ...Object.keys(wants)])];
@@ -332,20 +364,31 @@
       lines.push(`■${g}`);
       if (gives[g]){
         lines.push("譲)");
-        lines.push(gives[g].map(itemText).join(" "));
+        lines.push(gives[g].map(it => itemText(it, nameMode)).join(" "));
       }
       if (wants[g]){
         lines.push("求)");
-        lines.push(wants[g].map(itemText).join(" "));
+        lines.push(wants[g].map(it => itemText(it, nameMode)).join(" "));
       }
       lines.push("");
     });
     return lines.join("\n").trim();
   }
 
+  function currentNameMode(){
+    const checked = document.querySelector('input[name="nameMode"]:checked');
+    return checked ? checked.value : "full";
+  }
+
   document.getElementById("btnText").addEventListener("click", () => {
-    document.getElementById("resultText").value = generateText();
+    document.getElementById("resultText").value = generateText(currentNameMode());
     document.getElementById("resultModal").style.display = "flex";
+  });
+
+  document.querySelectorAll('input[name="nameMode"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      document.getElementById("resultText").value = generateText(currentNameMode());
+    });
   });
 
   document.getElementById("copyTextBtn").addEventListener("click", () => {
@@ -362,7 +405,17 @@
     document.getElementById("resultModal").style.display = "none";
   });
 
-  document.getElementById("btnReset").addEventListener("click", () => {
+  document.getElementById("btnResetGroup").addEventListener("click", () => {
+    if (!confirm(`「${currentGroup}」の譲・求の選択をリセットします。よろしいですか？`)) return;
+    Object.keys(state).forEach(k => {
+      if (k.startsWith(currentGroup + "::")) delete state[k];
+    });
+    saveState();
+    renderGrid();
+    renderCounts();
+  });
+
+  document.getElementById("btnResetAll").addEventListener("click", () => {
     if (!confirm("すべてのグループの譲・求の選択をリセットします。よろしいですか？")) return;
     state = {};
     saveState();
