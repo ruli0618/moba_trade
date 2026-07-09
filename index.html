@@ -107,8 +107,10 @@
   #imageExport .ex-card { text-align:center; }
   #imageExport .ex-thumb-wrap {
     position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background-color:#111;
+    display:flex; align-items:center; justify-content:center;
   }
-  #imageExport .ex-thumb { width:100%; height:100%; object-fit:contain; display:block; }
+  /* html2canvas は object-fit を正しく描画できないため、max-width/max-height + flex中央寄せで縦横比を保つ */
+  #imageExport .ex-thumb { max-width:100%; max-height:100%; width:auto; height:auto; display:block; }
   #imageExport .ex-qty-badge {
     position:absolute; top:4px; right:4px; background:rgba(0,0,0,.8); color:#ffd24a;
     font-size:12px; font-weight:bold; padding:2px 7px; border-radius:6px;
