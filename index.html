@@ -167,6 +167,11 @@
     return path.split("/").map(encodeURIComponent).join("/");
   }
 
+  // 内部の並び替え・状態管理には "R1"/"R2" のまま使うが、画面表示では数字を省いて "R" とする
+  function displayRarity(rarity){
+    return rarity.replace(/^R[12]$/, "R");
+  }
+
   const STORAGE_KEY = "halocon2026-trade-list";
 
   function loadState(){
@@ -209,7 +214,7 @@
       const st = state[k] || "none";
       return `<div class="card state-${st}" data-key="${k}">
         <div class="thumb" style="background-image:url('${encodePath(item.path)}')">
-          <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+          <span class="rarity-badge rarity-${item.rarity}">${displayRarity(item.rarity)}</span>
           <span class="state-badge"></span>
         </div>
         <div class="name">${item.member}<br>${item.itemName}</div>
@@ -265,8 +270,8 @@
     Object.keys(GROUPS).forEach(g => {
       if (!gives[g] && !wants[g]) return;
       lines.push(`■${g}`);
-      if (gives[g]) lines.push("譲）" + gives[g].map(it => `${it.rarity} ${it.member}${it.itemName}`).join("、"));
-      if (wants[g]) lines.push("求）" + wants[g].map(it => `${it.rarity} ${it.member}${it.itemName}`).join("、"));
+      if (gives[g]) lines.push("譲）" + gives[g].map(it => `${displayRarity(it.rarity)} ${it.member}${it.itemName}`).join("、"));
+      if (wants[g]) lines.push("求）" + wants[g].map(it => `${displayRarity(it.rarity)} ${it.member}${it.itemName}`).join("、"));
       lines.push("");
     });
     lines.push("#ハロコン2026 #ハロプロトレード");
@@ -313,7 +318,7 @@
       byGroup[g].forEach(it => {
         html += `<div class="ex-card">
           <div class="ex-thumb" style="background-image:url('${encodePath(it.path)}')"></div>
-          <div class="ex-name">${it.rarity} ${it.member}<br>${it.itemName}</div>
+          <div class="ex-name">${displayRarity(it.rarity)} ${it.member}<br>${it.itemName}</div>
         </div>`;
       });
       html += `</div>`;
