@@ -148,9 +148,11 @@
   function buildItems(groupKey){
     const g = GROUPS[groupKey];
     const list = [];
-    ITEM_TYPES.forEach(t => {
-      g.members.forEach((member, i) => {
-        const num = String(i + 1).padStart(3, "0");
+    // 元画像ファイル名の通し番号（001, 002, ...）順にメンバーごとへまとめて並べる
+    const typesByRarityAsc = [...ITEM_TYPES].reverse(); // N, R1, R2, SR
+    g.members.forEach((member, i) => {
+      const num = String(i + 1).padStart(3, "0");
+      typesByRarityAsc.forEach(t => {
         const file = `[${t.rarity}]${t.name}${num}${member}.png`;
         list.push({ rarity:t.rarity, itemName:t.name, member, file, path:`${g.folder}/${file}` });
       });
