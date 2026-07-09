@@ -346,8 +346,14 @@
     return result;
   }
 
-  function itemText(it, nameMode){
-    return `${displayRarity(it.rarity)} ${displayMember(it.member, nameMode)}${it.itemName}${it.qty > 1 ? "×" + it.qty : ""}`;
+  // 同じグッズ種類ごとにまとめて「グッズ名」の行→対象メンバーを空白区切りで並べた行、を出力する
+  function appendByType(lines, items, nameMode){
+    ITEM_TYPES.forEach(t => {
+      const list = items.filter(it => it.itemName === t.name);
+      if (!list.length) return;
+      lines.push(t.name);
+      lines.push(list.map(it => displayMember(it.member, nameMode) + (it.qty > 1 ? "×" + it.qty : "")).join(" "));
+    });
   }
 
   function generateText(nameMode){
@@ -366,11 +372,11 @@
       lines.push(`■${g}`);
       if (gives[g]){
         lines.push("譲)");
-        lines.push(gives[g].map(it => itemText(it, nameMode)).join(" "));
+        appendByType(lines, gives[g], nameMode);
       }
       if (wants[g]){
         lines.push("求)");
-        lines.push(wants[g].map(it => itemText(it, nameMode)).join(" "));
+        appendByType(lines, wants[g], nameMode);
       }
       lines.push("");
     });
