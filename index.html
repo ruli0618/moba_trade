@@ -505,6 +505,23 @@
     })));
   }
 
+  // html2canvasはmax-width/max-height + width/height:auto での縦横比計算をうまく描画できず、
+  // 正方形でない画像（缶バッジ以外）が実寸のまま描画されoverflow:hiddenで途切れることがある。
+  // そのため各画像の表示サイズをJSで計算し、pxで直接指定する。
+  function fitImagesToBoxes(container){
+    container.querySelectorAll(".ex-thumb-wrap").forEach(wrap => {
+      const img = wrap.querySelector("img");
+      if (!img || !img.naturalWidth || !img.naturalHeight) return;
+      const boxSize = wrap.clientWidth;
+      const ratio = img.naturalWidth / img.naturalHeight;
+      let w, h;
+      if (ratio > 1){ w = boxSize; h = boxSize / ratio; }
+      else { h = boxSize; w = boxSize * ratio; }
+      img.style.width = `${w}px`;
+      img.style.height = `${h}px`;
+    });
+  }
+
   document.getElementById("btnImage").addEventListener("click", async () => {
     const exportEl = document.getElementById("imageExport");
     const today = new Date();
@@ -523,6 +540,7 @@
 
     try {
       await waitForImages(exportEl);
+      fitImagesToBoxes(exportEl);
       const scale = computeSafeScale(exportEl.offsetWidth, exportEl.offsetHeight, 3);
       const canvas = await html2canvas(exportEl, { backgroundColor: "#ffe1f0", scale });
       const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
