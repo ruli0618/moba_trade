@@ -72,15 +72,15 @@
   #btnResetGroup { background:#333; color:#ccc; }
   #btnResetAll { background:#3a1414; color:#ff8a8a; }
 
-  #resultModal {
+  #resultModal, #imageResultModal {
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.85);
     align-items:center; justify-content:center; z-index:200; padding:16px;
   }
-  #resultModal .modal-box {
+  #resultModal .modal-box, #imageResultModal .modal-box {
     background:#141414; border-radius:10px; padding:18px; width:100%; max-width:480px;
     max-height:85vh; overflow-y:auto;
   }
-  #resultModal h3 { margin:0 0 10px; font-size:15px; }
+  #resultModal h3, #imageResultModal h3 { margin:0 0 10px; font-size:15px; }
   .name-mode-select { display:flex; gap:16px; margin-bottom:10px; font-size:13px; color:#ccc; }
   .name-mode-select label { display:flex; align-items:center; gap:4px; cursor:pointer; }
   #resultText {
@@ -88,6 +88,8 @@
     border:1px solid #444; border-radius:6px; padding:8px; resize:vertical; box-sizing:border-box;
     white-space:pre-wrap;
   }
+  .image-modal-hint { font-size:12px; color:#aaa; margin:0 0 10px; }
+  .image-preview-wrap img { width:100%; display:block; border-radius:8px; }
   .modal-actions { display:flex; gap:8px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap; }
   .modal-actions button { padding:8px 14px; font-size:13px; border-radius:6px; border:none; cursor:pointer; }
   .modal-actions .copy-btn { background:#fff; color:#000; }
@@ -96,18 +98,21 @@
   /* 画像書き出し用（画面には出さないオフスクリーン領域） */
   /* position:fixed だとスマホのブラウザでビジュアルビューポート基準になり幅が崩れることがあるため absolute にする */
   #imageExport {
-    position:absolute; left:-9999px; top:0; width:900px; background:#000; color:#fff; padding:28px;
+    position:absolute; left:-9999px; top:0; width:900px; padding:28px;
+    background:linear-gradient(160deg, #ffe1f0 0%, #fff3d6 30%, #d9f2ff 65%, #e3d9ff 100%);
+    color:#3a2e42;
   }
-  #imageExport h2 { font-size:20px; text-align:center; margin:0 0 4px; }
-  #imageExport .date { text-align:center; font-size:12px; color:#888; margin-bottom:18px; }
-  #imageExport .section-title { font-size:16px; font-weight:bold; margin:18px 0 10px; padding-left:8px; border-left:4px solid #fff; }
-  #imageExport .section-title.give { border-color:#3ecf67; color:#3ecf67; }
-  #imageExport .section-title.want { border-color:#4a9eff; color:#4a9eff; }
-  #imageExport .group-name { font-size:13px; color:#ccc; margin:12px 0 8px; }
+  #imageExport h2 { font-size:20px; text-align:center; margin:0 0 4px; color:#5a3b7a; text-shadow:0 1px 2px rgba(255,255,255,.7); }
+  #imageExport .date { text-align:center; font-size:12px; color:#6b5b73; margin-bottom:18px; }
+  #imageExport .section-title { font-size:16px; font-weight:bold; margin:18px 0 10px; padding-left:8px; border-left:4px solid #333; }
+  #imageExport .section-title.give { border-color:#1a8a4a; color:#1a8a4a; }
+  #imageExport .section-title.want { border-color:#1f5fa8; color:#1f5fa8; }
+  #imageExport .group-name { font-size:13px; color:#4a3b57; font-weight:bold; margin:12px 0 8px; }
   #imageExport .ex-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
   #imageExport .ex-card { text-align:center; }
   #imageExport .ex-thumb-wrap {
-    position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background-color:#111;
+    position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background-color:#fff;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
     display:flex; align-items:center; justify-content:center;
   }
   /* html2canvas は object-fit を正しく描画できないため、max-width/max-height + flex中央寄せで縦横比を保つ */
@@ -116,8 +121,8 @@
     position:absolute; top:4px; right:4px; background:rgba(0,0,0,.8); color:#ffd24a;
     font-size:12px; font-weight:bold; padding:2px 7px; border-radius:6px;
   }
-  #imageExport .ex-name { font-size:11px; margin-top:5px; color:#ddd; line-height:1.3; }
-  #imageExport .empty { text-align:center; color:#666; font-size:12px; padding:10px 0; }
+  #imageExport .ex-name { font-size:11px; margin-top:5px; color:#3a2e42; font-weight:bold; line-height:1.3; }
+  #imageExport .empty { text-align:center; color:#8a7a90; font-size:12px; padding:10px 0; }
 </style>
 </head>
 <body>
@@ -147,6 +152,18 @@
     <div class="modal-actions">
       <button class="copy-btn" id="copyTextBtn">コピー</button>
       <button class="close-btn" id="closeModalBtn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="imageResultModal">
+  <div class="modal-box">
+    <h3>トレードリスト画像</h3>
+    <p class="image-modal-hint">画像を長押しすると保存できます</p>
+    <div class="image-preview-wrap"><img id="imageResultPreview" alt="トレードリスト画像"></div>
+    <div class="modal-actions">
+      <button class="copy-btn" id="shareImageBtn">共有 / 保存</button>
+      <button class="close-btn" id="closeImageModalBtn">閉じる</button>
     </div>
   </div>
 </div>
@@ -457,14 +474,13 @@
     return html;
   }
 
-  const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // 生成した画像のBlob/URLはここに保持し、共有ボタンを押した時（別のクリック）に使う。
+  // navigator.share()はhtml2canvasの完了を待った後に呼ぶとユーザー操作の文脈が切れて
+  // iOS Safariで失敗する（NotAllowedError）ため、画像生成と共有を別のクリックに分けている。
+  let lastExportBlob = null;
+  let lastExportUrl = null;
 
   document.getElementById("btnImage").addEventListener("click", async () => {
-    const canShareFilesApi = !!(navigator.share && navigator.canShare);
-
-    // ポップアップブロック対策：新規タブを開く可能性がある場合はクリック直後（非同期処理の前）に開いておく
-    const preOpenedTab = (isMobileDevice && !canShareFilesApi) ? window.open("", "_blank") : null;
-
     const exportEl = document.getElementById("imageExport");
     const today = new Date();
     const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
@@ -481,38 +497,45 @@
     btn.innerText = "作成中...";
 
     try {
-      const canvas = await html2canvas(exportEl, { backgroundColor: "#000000", scale: 3 });
+      const canvas = await html2canvas(exportEl, { backgroundColor: "#ffe1f0", scale: 3 });
       const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-      const file = new File([blob], "halocon2026-trade-list.png", { type: "image/png" });
 
-      if (canShareFilesApi && navigator.canShare({ files: [file] })){
-        try {
-          await navigator.share({ files: [file], title: "モバガチャ　ハロコン2026" });
-        } catch (shareErr) {
-          if (shareErr.name !== "AbortError") throw shareErr;
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        if (preOpenedTab){
-          // スマホ：別タブに画像だけを表示し、長押しでカメラロールに保存できるようにする
-          preOpenedTab.location.href = url;
-        } else if (isMobileDevice){
-          window.open(url, "_blank");
-        } else {
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "halocon2026-trade-list.png";
-          a.click();
-        }
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      }
+      if (lastExportUrl) URL.revokeObjectURL(lastExportUrl);
+      lastExportBlob = blob;
+      lastExportUrl = URL.createObjectURL(blob);
+
+      document.getElementById("imageResultPreview").src = lastExportUrl;
+      document.getElementById("imageResultModal").style.display = "flex";
     } catch (e) {
-      if (preOpenedTab) preOpenedTab.close();
       alert("画像の作成に失敗しました。");
     } finally {
       btn.disabled = false;
       btn.innerText = originalLabel;
     }
+  });
+
+  document.getElementById("shareImageBtn").addEventListener("click", async () => {
+    if (!lastExportBlob || !lastExportUrl) return;
+    const file = new File([lastExportBlob], "halocon2026-trade-list.png", { type: "image/png" });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+      try {
+        await navigator.share({ files: [file], title: "モバガチャ　ハロコン2026" });
+        return;
+      } catch (shareErr) {
+        if (shareErr.name === "AbortError") return; // ユーザーがキャンセルした場合は何もしない
+        // 共有に失敗した場合は下のダウンロードにフォールバックする
+      }
+    }
+
+    const a = document.createElement("a");
+    a.href = lastExportUrl;
+    a.download = "halocon2026-trade-list.png";
+    a.click();
+  });
+
+  document.getElementById("closeImageModalBtn").addEventListener("click", () => {
+    document.getElementById("imageResultModal").style.display = "none";
   });
 
   renderTabs();
