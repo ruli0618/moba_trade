@@ -55,6 +55,27 @@
   .edit-btn { background:#333; color:#ccc; }
   .delete-btn { background:#3a1414; color:#ff8a8a; }
   .empty-state { text-align:center; color:#666; font-size:13px; padding:30px 0; }
+
+  #exportModal {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.85);
+    align-items:center; justify-content:center; z-index:200; padding:16px;
+  }
+  #exportModal .modal-box {
+    background:#141414; border-radius:10px; padding:18px; width:100%; max-width:480px;
+    max-height:85vh; overflow-y:auto;
+  }
+  #exportModal h3 { margin:0 0 10px; font-size:15px; }
+  #exportText {
+    width:100%; height:260px; background:#000; color:#8fe0a4; font-size:12px;
+    border:1px solid #444; border-radius:6px; padding:8px; resize:vertical; box-sizing:border-box;
+    white-space:pre-wrap;
+  }
+  .export-actions { display:flex; gap:8px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap; }
+  .export-actions button { padding:8px 14px; font-size:13px; border-radius:6px; border:none; cursor:pointer; }
+  #copyExportBtn { background:#fff; color:#000; }
+  #downloadExportBtn { background:#4a9eff; color:#fff; }
+  #lineExportBtn { background:#06c755; color:#fff; }
+  #closeExportBtn { background:#333; color:#ccc; }
 </style>
 </head>
 <body>
@@ -92,10 +113,24 @@
 
 <div class="toolbar">
   <input type="text" id="searchInput" placeholder="相手の名前で検索">
+  <button id="btnExport" style="background:#4a9eff; color:#fff;">📋 テキストで保存/送信</button>
   <button id="clearAllBtn">全削除</button>
 </div>
 
 <div class="record-list" id="recordList"></div>
+
+<div id="exportModal">
+  <div class="modal-box">
+    <h3>履歴をテキストで書き出し</h3>
+    <textarea id="exportText" readonly></textarea>
+    <div class="export-actions">
+      <button id="copyExportBtn">コピー</button>
+      <button id="downloadExportBtn">.txtで保存</button>
+      <button id="lineExportBtn">LINEで送る</button>
+      <button id="closeExportBtn">閉じる</button>
+    </div>
+  </div>
+</div>
 
 <script>
   const HISTORY_KEY = "halocon2026-trade-history";
@@ -248,6 +283,57 @@
     saveRecords();
     resetForm();
     renderList();
+  });
+
+  // 検索条件に関わらず、記録した履歴全体をテキスト化する
+  function generateHistoryText(){
+    if (records.length === 0) return "まだ記録がありません。";
+    const sorted = records.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+    const lines = ["トレード履歴", ""];
+    sorted.forEach(r => {
+      lines.push(`${r.date || "(日付未入力)"}　${r.partner || "(相手未入力)"}`);
+      if (r.given) lines.push(`譲）${r.given}`);
+      if (r.received) lines.push(`求）${r.received}`);
+      if (r.memo) lines.push(`メモ：${r.memo}`);
+      lines.push("");
+    });
+    return lines.join("\n").trim();
+  }
+
+  document.getElementById("btnExport").addEventListener("click", () => {
+    document.getElementById("exportText").value = generateHistoryText();
+    document.getElementById("exportModal").style.display = "flex";
+  });
+
+  document.getElementById("copyExportBtn").addEventListener("click", () => {
+    const ta = document.getElementById("exportText");
+    ta.select();
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value);
+    } else {
+      document.execCommand("copy");
+    }
+  });
+
+  document.getElementById("downloadExportBtn").addEventListener("click", () => {
+    const text = document.getElementById("exportText").value;
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `トレード履歴_${todayStr()}.txt`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  });
+
+  document.getElementById("lineExportBtn").addEventListener("click", () => {
+    const text = document.getElementById("exportText").value;
+    const url = "https://line.me/R/msg/text/?" + encodeURIComponent(text);
+    window.open(url, "_blank", "noopener,noreferrer");
+  });
+
+  document.getElementById("closeExportBtn").addEventListener("click", () => {
+    document.getElementById("exportModal").style.display = "none";
   });
 
   resetForm();
