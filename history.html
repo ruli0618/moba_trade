@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>トレード履歴</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", Meiryo, Arial, sans-serif;
+    background:#000; color:#fff; margin:0; padding:16px 16px 40px;
+  }
+  h1 { font-size:18px; text-align:center; margin:4px 0 2px; }
+  .sub { text-align:center; font-size:12px; color:#aaa; margin-bottom:18px; }
+  .nav-link { display:block; text-align:center; font-size:12px; color:#7ab8ff; margin-bottom:14px; }
+
+  .form-box {
+    max-width:520px; margin:0 auto 24px; background:#141414; border-radius:10px; padding:16px;
+  }
+  .form-row { margin-bottom:10px; }
+  .form-row label { display:block; font-size:12px; color:#aaa; margin-bottom:4px; }
+  .form-row input, .form-row textarea {
+    width:100%; box-sizing:border-box; padding:8px 10px; font-size:13px; border-radius:6px;
+    border:1px solid #444; background:#000; color:#fff; font-family:inherit;
+  }
+  .form-row textarea { resize:vertical; min-height:50px; }
+  .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+  .form-actions button {
+    padding:8px 16px; font-size:13px; border-radius:6px; border:none; cursor:pointer; font-weight:bold;
+  }
+  #saveBtn { background:#4a9eff; color:#fff; }
+  #cancelEditBtn { background:#333; color:#ccc; display:none; }
+
+  .toolbar { max-width:520px; margin:0 auto 14px; display:flex; gap:8px; }
+  .toolbar input {
+    flex:1; padding:8px 10px; font-size:13px; border-radius:6px; border:1px solid #444;
+    background:#111; color:#fff;
+  }
+  .toolbar button { padding:8px 12px; font-size:12px; border-radius:6px; border:none; background:#3a1414; color:#ff8a8a; cursor:pointer; }
+
+  .record-list { max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
+  .record-card { background:#141414; border-radius:10px; padding:14px; }
+  .record-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .record-date { font-size:12px; color:#888; }
+  .record-partner { font-size:14px; font-weight:bold; color:#fff; }
+  .record-section { font-size:13px; margin-bottom:6px; line-height:1.5; }
+  .record-section .label { color:#aaa; margin-right:6px; }
+  .record-section.given .label { color:#6fdc8c; }
+  .record-section.received .label { color:#7ab8ff; }
+  .record-memo { font-size:12px; color:#bbb; margin-top:6px; white-space:pre-wrap; }
+  .record-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+  .record-actions button {
+    padding:6px 12px; font-size:12px; border-radius:6px; border:none; cursor:pointer;
+  }
+  .edit-btn { background:#333; color:#ccc; }
+  .delete-btn { background:#3a1414; color:#ff8a8a; }
+  .empty-state { text-align:center; color:#666; font-size:13px; padding:30px 0; }
+</style>
+</head>
+<body>
+
+<h1>📝 トレード履歴</h1>
+<div class="sub">いつ・誰と・何を交換したかを記録します</div>
+<a class="nav-link" href="index.html">← トレードリスト作成ツールへ</a>
+
+<div class="form-box">
+  <div class="form-row">
+    <label for="dateInput">日付</label>
+    <input type="date" id="dateInput">
+  </div>
+  <div class="form-row">
+    <label for="partnerInput">相手（名前・アカウント名など）</label>
+    <input type="text" id="partnerInput" placeholder="例：@xxxx さん">
+  </div>
+  <div class="form-row">
+    <label for="givenInput">譲ったもの</label>
+    <textarea id="givenInput" placeholder="例：SR 橋迫鈴 ソロうちわ"></textarea>
+  </div>
+  <div class="form-row">
+    <label for="receivedInput">もらったもの</label>
+    <textarea id="receivedInput" placeholder="例：SR 後藤花 ソロうちわ"></textarea>
+  </div>
+  <div class="form-row">
+    <label for="memoInput">メモ（任意）</label>
+    <input type="text" id="memoInput" placeholder="例：郵送で発送済み">
+  </div>
+  <div class="form-actions">
+    <button id="cancelEditBtn">編集をキャンセル</button>
+    <button id="saveBtn">記録する</button>
+  </div>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="searchInput" placeholder="相手の名前で検索">
+  <button id="clearAllBtn">全削除</button>
+</div>
+
+<div class="record-list" id="recordList"></div>
+
+<script>
+  const HISTORY_KEY = "halocon2026-trade-history";
+
+  function loadRecords(){
+    try {
+      const saved = JSON.parse(localStorage.getItem(HISTORY_KEY));
+      if (Array.isArray(saved)) return saved;
+    } catch (e) {}
+    return [];
+  }
+  function saveRecords(){ localStorage.setItem(HISTORY_KEY, JSON.stringify(records)); }
+
+  let records = loadRecords(); // { id, date, partner, given, received, memo }
+  let editingId = null;
+
+  const dateInput     = document.getElementById("dateInput");
+  const partnerInput  = document.getElementById("partnerInput");
+  const givenInput    = document.getElementById("givenInput");
+  const receivedInput = document.getElementById("receivedInput");
+  const memoInput     = document.getElementById("memoInput");
+  const searchInput   = document.getElementById("searchInput");
+  const cancelEditBtn = document.getElementById("cancelEditBtn");
+  const recordListEl  = document.getElementById("recordList");
+
+  function todayStr(){
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  }
+
+  function resetForm(){
+    editingId = null;
+    dateInput.value = todayStr();
+    partnerInput.value = "";
+    givenInput.value = "";
+    receivedInput.value = "";
+    memoInput.value = "";
+    cancelEditBtn.style.display = "none";
+    document.getElementById("saveBtn").textContent = "記録する";
+  }
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function renderList(){
+    const query = searchInput.value.trim();
+    const filtered = records
+      .filter(r => !query || r.partner.includes(query))
+      .slice()
+      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+
+    if (filtered.length === 0){
+      recordListEl.innerHTML = `<div class="empty-state">まだ記録がありません。上のフォームから追加してください。</div>`;
+      return;
+    }
+
+    recordListEl.innerHTML = filtered.map(r => `
+      <div class="record-card" data-id="${r.id}">
+        <div class="record-head">
+          <span class="record-partner">${escapeHtml(r.partner || "（相手未入力）")}</span>
+          <span class="record-date">${escapeHtml(r.date || "")}</span>
+        </div>
+        ${r.given ? `<div class="record-section given"><span class="label">譲)</span>${escapeHtml(r.given)}</div>` : ""}
+        ${r.received ? `<div class="record-section received"><span class="label">求)</span>${escapeHtml(r.received)}</div>` : ""}
+        ${r.memo ? `<div class="record-memo">${escapeHtml(r.memo)}</div>` : ""}
+        <div class="record-actions">
+          <button class="edit-btn" data-id="${r.id}">編集</button>
+          <button class="delete-btn" data-id="${r.id}">削除</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  document.getElementById("saveBtn").addEventListener("click", () => {
+    const partner = partnerInput.value.trim();
+    const given = givenInput.value.trim();
+    const received = receivedInput.value.trim();
+    if (!partner && !given && !received){
+      alert("相手・譲ったもの・もらったもののいずれかを入力してください。");
+      return;
+    }
+
+    if (editingId !== null){
+      const rec = records.find(r => r.id === editingId);
+      if (rec){
+        rec.date = dateInput.value;
+        rec.partner = partner;
+        rec.given = given;
+        rec.received = received;
+        rec.memo = memoInput.value.trim();
+      }
+    } else {
+      records.push({
+        id: Date.now(),
+        date: dateInput.value,
+        partner,
+        given,
+        received,
+        memo: memoInput.value.trim()
+      });
+    }
+
+    saveRecords();
+    resetForm();
+    renderList();
+  });
+
+  cancelEditBtn.addEventListener("click", resetForm);
+
+  recordListEl.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".edit-btn");
+    const deleteBtn = e.target.closest(".delete-btn");
+
+    if (editBtn){
+      const id = Number(editBtn.dataset.id);
+      const rec = records.find(r => r.id === id);
+      if (!rec) return;
+      editingId = id;
+      dateInput.value = rec.date || todayStr();
+      partnerInput.value = rec.partner || "";
+      givenInput.value = rec.given || "";
+      receivedInput.value = rec.received || "";
+      memoInput.value = rec.memo || "";
+      cancelEditBtn.style.display = "inline-block";
+      document.getElementById("saveBtn").textContent = "更新する";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (deleteBtn){
+      const id = Number(deleteBtn.dataset.id);
+      if (!confirm("この記録を削除しますか？")) return;
+      records = records.filter(r => r.id !== id);
+      saveRecords();
+      if (editingId === id) resetForm();
+      renderList();
+      return;
+    }
+  });
+
+  searchInput.addEventListener("input", renderList);
+
+  document.getElementById("clearAllBtn").addEventListener("click", () => {
+    if (records.length === 0) return;
+    if (!confirm("すべての履歴を削除します。よろしいですか？")) return;
+    records = [];
+    saveRecords();
+    resetForm();
+    renderList();
+  });
+
+  resetForm();
+  renderList();
+</script>
+
+</body>
+</html>
