@@ -17,6 +17,7 @@
     padding:6px 12px; font-size:12px; cursor:pointer;
   }
   .tabs button.active { background:#fff; color:#000; border-color:#fff; font-weight:bold; }
+  .tabs button.tab-disabled { background:#111; color:#555; border-color:#2a2a2a; cursor:not-allowed; }
 
   .counts { text-align:center; font-size:12px; color:#aaa; margin-bottom:12px; }
   .counts .give-num { color:#6fdc8c; font-weight:bold; }
@@ -263,6 +264,29 @@
   let state = loadState(); // key: "グループ名::ファイル名" -> { type:"give"|"want", qty:number }
   let currentGroup = Object.keys(GROUPS)[0];
 
+  // グループの公開/非公開設定。group-config.json（管理者ページから更新される）を読み込む。
+  // 取得できない間や未公開の場合は全グループ表示のままにする（フェイルオープン）。
+  let groupVisibility = {};
+  function isGroupVisible(g){ return groupVisibility[g] !== false; }
+
+  async function loadGroupVisibility(){
+    try {
+      const res = await fetch("group-config.json", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && typeof data === "object") groupVisibility = data;
+    } catch (e) {
+      // 取得失敗時は全グループ表示のまま
+    }
+    if (!isGroupVisible(currentGroup)){
+      const firstVisible = Object.keys(GROUPS).find(g => isGroupVisible(g));
+      if (firstVisible) currentGroup = firstVisible;
+    }
+    renderTabs();
+    renderGrid();
+    renderCounts();
+  }
+
   const tabsEl   = document.getElementById("tabs");
   const gridEl   = document.getElementById("grid");
   const countsEl = document.getElementById("counts");
@@ -294,11 +318,15 @@
   }
 
   function renderTabs(){
-    tabsEl.innerHTML = Object.keys(GROUPS).map(g =>
-      `<button data-group="${g}" class="${g === currentGroup ? "active" : ""}">${g}</button>`
-    ).join("");
+    tabsEl.innerHTML = Object.keys(GROUPS).map(g => {
+      const visible = isGroupVisible(g);
+      const cls = [g === currentGroup ? "active" : "", visible ? "" : "tab-disabled"].filter(Boolean).join(" ");
+      const label = visible ? g : `${g}（準備中）`;
+      return `<button data-group="${g}" class="${cls}" ${visible ? "" : "disabled"}>${label}</button>`;
+    }).join("");
     tabsEl.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => {
+        if (!isGroupVisible(btn.dataset.group)) return;
         currentGroup = btn.dataset.group;
         renderTabs();
         renderGrid();
@@ -595,6 +623,7 @@
   renderTabs();
   renderGrid();
   renderCounts();
+  loadGroupVisibility();
 </script>
 
 </body>

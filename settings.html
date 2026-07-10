@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>グループ表示設定（管理者用）</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", Meiryo, Arial, sans-serif;
+    background:#000; color:#fff; margin:0; padding:16px 16px 40px;
+  }
+  h1 { font-size:17px; text-align:center; margin:4px 0 18px; }
+
+  .box { max-width:480px; margin:0 auto 20px; background:#141414; border-radius:10px; padding:18px; }
+  .box label { display:block; font-size:12px; color:#aaa; margin-bottom:6px; }
+  .box input[type="password"], .box input[type="text"] {
+    width:100%; box-sizing:border-box; padding:9px 10px; font-size:13px; border-radius:6px;
+    border:1px solid #444; background:#000; color:#fff;
+  }
+  .hint { font-size:11px; color:#888; margin-top:6px; line-height:1.5; }
+
+  #gateBox button { margin-top:12px; width:100%; padding:10px; font-size:14px; font-weight:bold;
+    border:none; border-radius:8px; background:#4a9eff; color:#fff; cursor:pointer; }
+
+  #panel { display:none; }
+  .toggle-row {
+    display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid #262626; font-size:14px;
+  }
+  .toggle-row:last-child { border-bottom:none; }
+  .toggle-row input { width:18px; height:18px; }
+
+  #saveBtn {
+    margin-top:16px; width:100%; padding:12px; font-size:14px; font-weight:bold;
+    border:none; border-radius:8px; background:#3ecf67; color:#000; cursor:pointer;
+  }
+  #saveBtn:disabled { background:#333; color:#777; cursor:not-allowed; }
+  #statusMsg { text-align:center; font-size:13px; margin-top:10px; min-height:18px; }
+</style>
+</head>
+<body>
+
+<h1>🔒 グループ表示設定（管理者用）</h1>
+
+<div id="gateBox" class="box">
+  <label for="passwordInput">パスワード</label>
+  <input type="password" id="passwordInput" placeholder="パスワードを入力">
+  <button id="unlockBtn">開く</button>
+</div>
+
+<div id="panel">
+  <div class="box">
+    <label for="tokenInput">GitHub Personal Access Token</label>
+    <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+    <div class="hint">
+      ruli0618/moba_trade リポジトリへの書き込み権限（Contents: Read and write）を持つトークンを入力してください。
+      このブラウザ内にのみ保存され、GitHub API以外には送信されません。
+    </div>
+  </div>
+
+  <div class="box">
+    <label>グループの表示（チェックを外すと、公開ページでそのグループのタブが選択できなくなります）</label>
+    <div id="groupToggleList">読み込み中...</div>
+  </div>
+
+  <button id="saveBtn" disabled>この設定を保存して公開する</button>
+  <div id="statusMsg"></div>
+</div>
+
+<script>
+  // ここを好きなパスワードに変更してください
+  const SETTINGS_PASSWORD = "halocon2026admin";
+
+  const GITHUB_OWNER = "ruli0618";
+  const GITHUB_REPO  = "moba_trade";
+  const CONFIG_PATH  = "group-config.json";
+  const TOKEN_KEY     = "moba_trade_admin_token";
+
+  const GROUPS_ORDER = [
+    "モーニング娘", "アンジュルム", "Juice=Juice", "つばきファクトリー",
+    "BEYOOOOOONDS", "OCHA NORMA", "ロージークロニクル"
+  ];
+
+  document.getElementById("unlockBtn").addEventListener("click", unlock);
+  document.getElementById("passwordInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") unlock();
+  });
+
+  function unlock(){
+    const input = document.getElementById("passwordInput").value;
+    if (input !== SETTINGS_PASSWORD){
+      alert("パスワードが違います。");
+      return;
+    }
+    document.getElementById("gateBox").style.display = "none";
+    document.getElementById("panel").style.display = "block";
+    init();
+  }
+
+  let currentSha = null;
+
+  function init(){
+    const tokenInput = document.getElementById("tokenInput");
+    tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
+    tokenInput.addEventListener("input", () => {
+      localStorage.setItem(TOKEN_KEY, tokenInput.value);
+    });
+    loadCurrentConfig();
+  }
+
+  async function loadCurrentConfig(){
+    const listEl = document.getElementById("groupToggleList");
+    let config = {};
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${CONFIG_PATH}`,
+        { headers: { "Accept": "application/vnd.github+json" } }
+      );
+      if (res.ok){
+        const data = await res.json();
+        currentSha = data.sha;
+        config = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+      }
+    } catch (e) {
+      // 取得できない場合は全部公開扱いで表示する
+    }
+    renderToggles(config);
+    document.getElementById("saveBtn").disabled = false;
+  }
+
+  function renderToggles(config){
+    const listEl = document.getElementById("groupToggleList");
+    listEl.innerHTML = GROUPS_ORDER.map(g => {
+      const visible = config[g] !== false;
+      return `<label class="toggle-row">
+        <input type="checkbox" data-group="${g}" ${visible ? "checked" : ""}>
+        ${g}
+      </label>`;
+    }).join("");
+  }
+
+  document.getElementById("saveBtn").addEventListener("click", async () => {
+    const token = document.getElementById("tokenInput").value.trim();
+    if (!token){
+      alert("GitHubトークンを入力してください。");
+      return;
+    }
+
+    const newConfig = {};
+    document.querySelectorAll('#groupToggleList input[type="checkbox"]').forEach(cb => {
+      newConfig[cb.dataset.group] = cb.checked;
+    });
+
+    const statusEl = document.getElementById("statusMsg");
+    const saveBtn = document.getElementById("saveBtn");
+    saveBtn.disabled = true;
+    statusEl.textContent = "保存中...";
+    statusEl.style.color = "#aaa";
+
+    try {
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(newConfig, null, 2))));
+      const body = {
+        message: "グループ表示設定を更新",
+        content
+      };
+      if (currentSha) body.sha = currentSha;
+
+      const res = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${CONFIG_PATH}`,
+        {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        }
+      );
+
+      if (!res.ok){
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+
+      const result = await res.json();
+      currentSha = result.content.sha;
+      statusEl.textContent = "✅ 保存しました。数分でサイトに反映されます。";
+      statusEl.style.color = "#6fdc8c";
+    } catch (e) {
+      statusEl.textContent = "❌ 保存に失敗しました：" + e.message;
+      statusEl.style.color = "#ff8a8a";
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
