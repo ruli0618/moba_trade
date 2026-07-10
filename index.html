@@ -133,6 +133,12 @@
 <div class="sub">カードをタップ：未設定 → 譲 → 求 → 未設定　の順で切り替わります（＋／－で個数を設定できます）</div>
 <div style="text-align:center; margin-bottom:14px;"><a href="history.html" style="font-size:12px; color:#7ab8ff;">📝 トレード履歴を記録する →</a></div>
 
+<div id="underConstruction" style="display:none; text-align:center; padding:60px 16px; color:#aaa;">
+  <div style="font-size:48px; margin-bottom:16px;">🚧</div>
+  <div style="font-size:16px; color:#fff; margin-bottom:8px;">只今準備中です</div>
+  <div style="font-size:13px; color:#888;">グッズ情報の公開まで少々お待ちください。</div>
+</div>
+
 <div class="tabs" id="tabs"></div>
 <div class="counts" id="counts"></div>
 <div class="grid" id="grid"></div>
@@ -269,15 +275,35 @@
   let groupVisibility = {};
   function isGroupVisible(g){ return groupVisibility[g] !== false; }
 
+  function allGroupsHidden(){
+    return Object.keys(GROUPS).every(g => !isGroupVisible(g));
+  }
+
+  function showUnderConstruction(){
+    document.querySelector(".sub").style.display = "none";
+    document.querySelector(".tabs").style.display = "none";
+    document.querySelector(".counts").style.display = "none";
+    document.getElementById("grid").style.display = "none";
+    document.querySelector(".bottom-bar").style.display = "none";
+    document.getElementById("underConstruction").style.display = "block";
+  }
+
   async function loadGroupVisibility(){
     try {
       const res = await fetch("group-config.json", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data && typeof data === "object") groupVisibility = data;
+      if (res.ok){
+        const data = await res.json();
+        if (data && typeof data === "object") groupVisibility = data;
+      }
     } catch (e) {
       // 取得失敗時は全グループ表示のまま
     }
+
+    if (allGroupsHidden()){
+      showUnderConstruction();
+      return;
+    }
+
     if (!isGroupVisible(currentGroup)){
       const firstVisible = Object.keys(GROUPS).find(g => isGroupVisible(g));
       if (firstVisible) currentGroup = firstVisible;
