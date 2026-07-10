@@ -13,6 +13,10 @@
   h1 { font-size:18px; text-align:center; margin:4px 0 2px; }
   .sub { text-align:center; font-size:12px; color:#aaa; margin-bottom:18px; }
   .nav-link { display:block; text-align:center; font-size:12px; color:#7ab8ff; margin-bottom:14px; }
+  .warning-box {
+    max-width:520px; margin:0 auto 16px; background:rgba(255,140,0,.12); border:1px solid rgba(255,140,0,.4);
+    border-radius:8px; padding:10px 12px; font-size:12px; color:#ffcf8a; text-align:center; line-height:1.6;
+  }
 
   .form-box {
     max-width:520px; margin:0 auto 24px; background:#141414; border-radius:10px; padding:16px;
@@ -31,12 +35,17 @@
   #saveBtn { background:#4a9eff; color:#fff; }
   #cancelEditBtn { background:#333; color:#ccc; display:none; }
 
-  .toolbar { max-width:520px; margin:0 auto 14px; display:flex; gap:8px; }
+  .toolbar { max-width:520px; margin:0 auto 10px; }
   .toolbar input {
-    flex:1; padding:8px 10px; font-size:13px; border-radius:6px; border:1px solid #444;
+    width:100%; box-sizing:border-box; padding:8px 10px; font-size:13px; border-radius:6px; border:1px solid #444;
     background:#111; color:#fff;
   }
-  .toolbar button { padding:8px 12px; font-size:12px; border-radius:6px; border:none; background:#3a1414; color:#ff8a8a; cursor:pointer; }
+  .action-row { max-width:520px; margin:0 auto 14px; display:flex; gap:8px; flex-wrap:wrap; }
+  .action-row button { padding:8px 12px; font-size:12px; border-radius:6px; border:none; cursor:pointer; }
+  #btnExport { background:#4a9eff; color:#fff; }
+  #btnBackup { background:#2e7d4f; color:#fff; }
+  #btnRestore { background:#5c4a9e; color:#fff; }
+  #clearAllBtn { background:#3a1414; color:#ff8a8a; }
 
   .record-list { max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
   .record-card { background:#141414; border-radius:10px; padding:14px; }
@@ -84,6 +93,10 @@
 <div class="sub">いつ・誰と・何を交換したかを記録します</div>
 <a class="nav-link" href="index.html">← トレードリスト作成ツールへ</a>
 
+<div class="warning-box">
+  ⚠️ この記録はこの端末・このブラウザだけに保存されています。ブラウザのデータ削除などで消えた場合、責任は負いかねます。「バックアップ保存」でこまめにファイルを保存し、消えてしまった時は「復元」からそのファイルを読み込んでください。
+</div>
+
 <div class="form-box">
   <div class="form-row">
     <label for="dateInput">日付</label>
@@ -113,9 +126,14 @@
 
 <div class="toolbar">
   <input type="text" id="searchInput" placeholder="相手の名前で検索">
-  <button id="btnExport" style="background:#4a9eff; color:#fff;">📋 テキストで保存/送信</button>
+</div>
+<div class="action-row">
+  <button id="btnExport">📋 テキストで保存/送信</button>
+  <button id="btnBackup">💾 バックアップ保存</button>
+  <button id="btnRestore">📂 復元</button>
   <button id="clearAllBtn">全削除</button>
 </div>
+<input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
 
 <div class="record-list" id="recordList"></div>
 
@@ -334,6 +352,56 @@
 
   document.getElementById("closeExportBtn").addEventListener("click", () => {
     document.getElementById("exportModal").style.display = "none";
+  });
+
+  // JSON形式のバックアップ（消えてしまった時にそのまま復元できるようにするための保存）
+  document.getElementById("btnBackup").addEventListener("click", () => {
+    const data = JSON.stringify(records, null, 2);
+    const blob = new Blob([data], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `トレード履歴バックアップ_${todayStr()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  });
+
+  document.getElementById("btnRestore").addEventListener("click", () => {
+    document.getElementById("restoreFileInput").click();
+  });
+
+  document.getElementById("restoreFileInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) throw new Error("invalid format");
+        const validated = imported
+          .filter(r => r && typeof r === "object")
+          .map(r => ({
+            id: typeof r.id === "number" ? r.id : Date.now() + Math.random(),
+            date: r.date || "",
+            partner: r.partner || "",
+            given: r.given || "",
+            received: r.received || "",
+            memo: r.memo || ""
+          }));
+        if (records.length > 0){
+          if (!confirm(`${validated.length}件の記録を、現在の記録に追加します。よろしいですか？`)) return;
+        }
+        records = records.concat(validated);
+        saveRecords();
+        renderList();
+        alert(`${validated.length}件を復元しました。`);
+      } catch (err){
+        alert("バックアップファイルの読み込みに失敗しました。正しい形式のファイルを選んでください。");
+      } finally {
+        e.target.value = "";
+      }
+    };
+    reader.readAsText(file, "utf-8");
   });
 
   resetForm();
