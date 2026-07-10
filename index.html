@@ -59,6 +59,32 @@
   .qty-btn:active { background:#444; }
   .qty-val { font-size:11px; min-width:16px; text-align:center; color:#fff; }
 
+  .fav-btn {
+    position:absolute; top:2px; right:2px; width:18px; height:18px; line-height:16px;
+    border:none; border-radius:50%; background:rgba(0,0,0,.6); color:#666; font-size:12px;
+    cursor:pointer; padding:0;
+  }
+  .fav-btn.is-fav { color:#ffd24a; }
+  .dup-badge {
+    position:absolute; bottom:2px; left:2px; font-size:9px; font-weight:bold; padding:1px 5px; border-radius:6px;
+    background:rgba(255,140,0,.9); color:#000;
+  }
+
+  .memo-section { max-width:600px; margin:0 auto 14px; }
+  .memo-input {
+    width:100%; box-sizing:border-box; padding:8px 10px; font-size:13px; border-radius:8px;
+    border:1px solid #444; background:#111; color:#fff;
+  }
+  .memo-input::placeholder { color:#666; }
+
+  .fav-filter { display:block; text-align:center; font-size:12px; color:#ccc; margin-bottom:8px; cursor:pointer; }
+  .fav-filter input { vertical-align:middle; margin-right:4px; }
+
+  .mode-hint {
+    max-width:600px; margin:0 auto 12px; background:rgba(255,140,0,.12); border:1px solid rgba(255,140,0,.4);
+    border-radius:8px; padding:8px 12px; font-size:12px; color:#ffcf8a; text-align:center;
+  }
+
   .bottom-bar {
     position:fixed; bottom:0; left:0; width:100%; background:rgba(10,10,10,.97);
     border-top:1px solid #333; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -69,18 +95,23 @@
   }
   #btnText { background:#fff; color:#000; }
   #btnImage { background:#4a9eff; color:#fff; }
+  #btnOverview { background:#6f4ad1; color:#fff; }
+  #btnOwnedMode { background:#c8770a; color:#fff; }
+  #btnOwnedMode.active-mode { background:#ffb84d; color:#000; }
+  #btnApplyDuplicates { background:#3a2e14; color:#ffcf8a; }
   #btnResetGroup { background:#333; color:#ccc; }
   #btnResetAll { background:#3a1414; color:#ff8a8a; }
 
-  #resultModal, #imageResultModal {
+  #resultModal, #imageResultModal, #overviewModal {
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.85);
     align-items:center; justify-content:center; z-index:200; padding:16px;
   }
-  #resultModal .modal-box, #imageResultModal .modal-box {
+  #resultModal .modal-box, #imageResultModal .modal-box, #overviewModal .modal-box {
     background:#141414; border-radius:10px; padding:18px; width:100%; max-width:480px;
     max-height:85vh; overflow-y:auto;
   }
-  #resultModal h3, #imageResultModal h3 { margin:0 0 10px; font-size:15px; }
+  #overviewModal .modal-box { max-width:640px; }
+  #resultModal h3, #imageResultModal h3, #overviewModal h3 { margin:0 0 10px; font-size:15px; }
   .name-mode-select { display:flex; gap:16px; margin-bottom:10px; font-size:13px; color:#ccc; }
   .name-mode-select label { display:flex; align-items:center; gap:4px; cursor:pointer; }
   #resultText {
@@ -105,6 +136,7 @@
   }
   #imageExport h2 { font-size:20px; text-align:center; margin:0 0 4px; color:#5a3b7a; text-shadow:0 1px 2px rgba(255,255,255,.7); }
   #imageExport .date { text-align:center; font-size:12px; color:#6b5b73; margin-bottom:18px; }
+  #imageExport .memo-line { text-align:center; font-size:12px; color:#5a3b7a; margin:-10px 0 18px; white-space:pre-wrap; }
   #imageExport .section-title { font-size:16px; font-weight:bold; margin:18px 0 10px; padding-left:8px; border-left:4px solid #333; }
   #imageExport .section-title.give { border-color:#1a8a4a; color:#1a8a4a; }
   #imageExport .section-title.want { border-color:#1f5fa8; color:#1f5fa8; }
@@ -124,6 +156,25 @@
   }
   #imageExport .ex-name { font-size:11px; margin-top:5px; color:#3a2e42; font-weight:bold; line-height:1.3; }
   #imageExport .empty { text-align:center; color:#8a7a90; font-size:12px; padding:10px 0; }
+
+  /* 全体確認モーダル（画面上だけの表示。html2canvasを通さないので通常のCSSでよい） */
+  #overviewContent .ov-section-title { font-size:14px; font-weight:bold; margin:14px 0 8px; padding-left:6px; border-left:4px solid #fff; }
+  #overviewContent .ov-section-title:first-child { margin-top:0; }
+  #overviewContent .ov-section-title.give { border-color:#3ecf67; color:#3ecf67; }
+  #overviewContent .ov-section-title.want { border-color:#4a9eff; color:#4a9eff; }
+  #overviewContent .ov-group-name { font-size:12px; color:#ccc; margin:10px 0 6px; }
+  #overviewContent .ov-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(64px, 1fr)); gap:8px; }
+  #overviewContent .ov-card { text-align:center; }
+  #overviewContent .ov-thumb {
+    position:relative; width:100%; aspect-ratio:1/1; border-radius:6px; background-color:#111;
+    background-size:contain; background-position:center; background-repeat:no-repeat;
+  }
+  #overviewContent .ov-qty {
+    position:absolute; bottom:2px; right:2px; background:rgba(0,0,0,.75); color:#ffd24a;
+    font-size:9px; font-weight:bold; padding:1px 5px; border-radius:6px;
+  }
+  #overviewContent .ov-name { font-size:9px; margin-top:3px; color:#ddd; line-height:1.25; }
+  #overviewContent .ov-empty { text-align:center; color:#666; font-size:12px; padding:10px 0; }
 </style>
 </head>
 <body>
@@ -131,13 +182,22 @@
 <h1>✨ハロ！コン2026 トレードリスト作成✨</h1>
 <div class="sub">カードをタップ：未設定 → 譲 → 求 → 未設定　の順で切り替わります（＋／－で個数を設定できます）</div>
 
+<div class="memo-section">
+  <input type="text" id="memoInput" class="memo-input" placeholder="メモ（例：X @アカウント名／郵送対応可）※テキスト・画像に追加されます" maxlength="120">
+</div>
+
 <div class="tabs" id="tabs"></div>
+<label class="fav-filter"><input type="checkbox" id="favOnlyToggle"> ★お気に入りのみ表示</label>
+<div id="ownedModeHint" class="mode-hint" style="display:none;">手持ち数を入力するモードです。＋／－で所有数を入力し、下の「重複分を譲に反映」で自動的に譲リストへ追加できます。</div>
 <div class="counts" id="counts"></div>
 <div class="grid" id="grid"></div>
 
 <div class="bottom-bar">
   <button id="btnText">📋 テキストで作成</button>
   <button id="btnImage">🖼 画像で保存</button>
+  <button id="btnOverview">🔍 全体を確認</button>
+  <button id="btnOwnedMode">📦 手持ち管理</button>
+  <button id="btnApplyDuplicates">🔁 重複分を譲に反映</button>
   <button id="btnResetGroup">このグループをリセット</button>
   <button id="btnResetAll">全てリセット</button>
 </div>
@@ -166,6 +226,16 @@
     <div class="modal-actions">
       <button class="copy-btn" id="shareImageBtn">共有 / 保存</button>
       <button class="close-btn" id="closeImageModalBtn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="overviewModal">
+  <div class="modal-box">
+    <h3>全体の確認</h3>
+    <div id="overviewContent"></div>
+    <div class="modal-actions">
+      <button class="close-btn" id="closeOverviewBtn">閉じる</button>
     </div>
   </div>
 </div>
@@ -210,6 +280,11 @@
 
   function encodePath(path){
     return path.split("/").map(encodeURIComponent).join("/");
+  }
+
+  // メモなどユーザー入力の自由文字列をinnerHTMLへ差し込む前にエスケープする
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
   }
 
   // 内部の並び替え・状態管理には "R1"/"R2" のまま使うが、画面表示では数字を省いて "R" とする
@@ -259,6 +334,41 @@
 
   function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
+  // メモ（テキスト・画像出力に追加される自由記入欄）
+  const MEMO_KEY = "halocon2026-trade-memo";
+  const memoInput = document.getElementById("memoInput");
+  memoInput.value = localStorage.getItem(MEMO_KEY) || "";
+  memoInput.addEventListener("input", () => { localStorage.setItem(MEMO_KEY, memoInput.value); });
+  function getMemo(){ return memoInput.value.trim(); }
+
+  // お気に入り（グループ::メンバー名 単位。絞り込み表示に使う）
+  const FAVORITES_KEY = "halocon2026-trade-favorites";
+  function loadFavorites(){
+    try {
+      const saved = JSON.parse(localStorage.getItem(FAVORITES_KEY));
+      if (saved && typeof saved === "object") return saved;
+    } catch (e) {}
+    return {};
+  }
+  function saveFavorites(){ localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites)); }
+  function favKey(groupKey, member){ return `${groupKey}::${member}`; }
+  function isFavorite(groupKey, member){ return !!favorites[favKey(groupKey, member)]; }
+  let favorites = loadFavorites();
+  let showFavoritesOnly = false;
+
+  // 手持ち（所有）数。重複分の自動検出に使う
+  const OWNED_KEY = "halocon2026-trade-owned";
+  function loadOwned(){
+    try {
+      const saved = JSON.parse(localStorage.getItem(OWNED_KEY));
+      if (saved && typeof saved === "object") return saved;
+    } catch (e) {}
+    return {};
+  }
+  function saveOwned(){ localStorage.setItem(OWNED_KEY, JSON.stringify(ownedState)); }
+  let ownedState = loadOwned(); // key -> 所有数
+  let ownedMode = false; // 手持ち数を入力するモードかどうか
+
   let state = loadState(); // key: "グループ名::ファイル名" -> { type:"give"|"want", qty:number }
   let currentGroup = Object.keys(GROUPS)[0];
 
@@ -307,10 +417,35 @@
   }
 
   function renderGrid(){
-    const items = ITEMS_BY_GROUP[currentGroup];
+    const items = ITEMS_BY_GROUP[currentGroup].filter(item =>
+      !showFavoritesOnly || isFavorite(currentGroup, item.member)
+    );
+
+    if (ownedMode){
+      gridEl.innerHTML = items.map(item => {
+        const k = keyOf(currentGroup, item.file);
+        const owned = ownedState[k] || 0;
+        const dupBadge = owned >= 2 ? `<span class="dup-badge">重複×${owned - 1}</span>` : "";
+        return `<div class="card" data-key="${k}">
+          <div class="thumb" style="background-image:url('${encodePath(item.path)}')">
+            <span class="rarity-badge rarity-${item.rarity}">${displayRarity(item.rarity)}</span>
+            ${dupBadge}
+          </div>
+          <div class="name">${item.member}<br>${item.itemName}</div>
+          <div class="qty-controls">
+            <button class="qty-btn owned-minus" data-key="${k}">−</button>
+            <span class="qty-val">所有${owned}</span>
+            <button class="qty-btn owned-plus" data-key="${k}">＋</button>
+          </div>
+        </div>`;
+      }).join("");
+      return;
+    }
+
     gridEl.innerHTML = items.map(item => {
       const k = keyOf(currentGroup, item.file);
       const st = getState(k);
+      const fav = isFavorite(currentGroup, item.member);
       const qtyControls = st.type !== "none" ? `
         <div class="qty-controls">
           <button class="qty-btn qty-minus" data-key="${k}">−</button>
@@ -323,6 +458,7 @@
           <span class="rarity-badge rarity-${item.rarity}">${displayRarity(item.rarity)}</span>
           <span class="state-badge"></span>
           ${qtyBadge}
+          <button class="fav-btn ${fav ? "is-fav" : ""}" data-member="${item.member}">${fav ? "★" : "☆"}</button>
         </div>
         <div class="name">${item.member}<br>${item.itemName}</div>
         ${qtyControls}
@@ -331,6 +467,29 @@
   }
 
   gridEl.addEventListener("click", (e) => {
+    const favBtn = e.target.closest(".fav-btn");
+    if (favBtn){
+      const member = favBtn.dataset.member;
+      const key = favKey(currentGroup, member);
+      if (favorites[key]) delete favorites[key]; else favorites[key] = true;
+      saveFavorites();
+      renderGrid();
+      return;
+    }
+
+    if (ownedMode){
+      const ownedMinus = e.target.closest(".owned-minus");
+      const ownedPlus  = e.target.closest(".owned-plus");
+      if (!ownedMinus && !ownedPlus) return;
+      const card = e.target.closest(".card");
+      const k = card.dataset.key;
+      const next = Math.max(0, (ownedState[k] || 0) + (ownedPlus ? 1 : -1));
+      if (next === 0) delete ownedState[k]; else ownedState[k] = next;
+      saveOwned();
+      renderGrid();
+      return;
+    }
+
     const minusBtn = e.target.closest(".qty-minus");
     const plusBtn  = e.target.closest(".qty-plus");
     const card     = e.target.closest(".card");
@@ -339,6 +498,37 @@
     if (minusBtn){ changeQty(k, -1); return; }
     if (plusBtn){ changeQty(k, 1); return; }
     cycleState(k);
+  });
+
+  document.getElementById("favOnlyToggle").addEventListener("change", (e) => {
+    showFavoritesOnly = e.target.checked;
+    renderGrid();
+  });
+
+  document.getElementById("btnOwnedMode").addEventListener("click", () => {
+    ownedMode = !ownedMode;
+    const btn = document.getElementById("btnOwnedMode");
+    btn.textContent = ownedMode ? "📦 手持ち入力を終了" : "📦 手持ち管理";
+    btn.classList.toggle("active-mode", ownedMode);
+    document.getElementById("ownedModeHint").style.display = ownedMode ? "block" : "none";
+    renderGrid();
+  });
+
+  document.getElementById("btnApplyDuplicates").addEventListener("click", () => {
+    let count = 0;
+    Object.keys(GROUPS).forEach(g => {
+      ITEMS_BY_GROUP[g].forEach(item => {
+        const k = keyOf(g, item.file);
+        const owned = ownedState[k] || 0;
+        if (owned >= 2 && getState(k).type === "none"){
+          setState(k, "give", owned - 1);
+          count++;
+        }
+      });
+    });
+    renderGrid();
+    renderCounts();
+    alert(count > 0 ? `${count}件を譲リストに追加しました。` : "重複している手持ちアイテムが見つかりませんでした。");
   });
 
   function renderCounts(){
@@ -385,7 +575,10 @@
       return "まだ譲・求のカードが選択されていません。\nカード画像をタップして選んでください。";
     }
 
-    const lines = ["モバガチャ　ハロコン2026", ""];
+    const lines = ["モバガチャ　ハロコン2026"];
+    const memo = getMemo();
+    if (memo) lines.push(memo);
+    lines.push("");
     // GROUPS の並び順で出力する
     Object.keys(GROUPS).forEach(g => {
       if (!gives[g] && !wants[g]) return;
@@ -482,6 +675,41 @@
     return html;
   }
 
+  // 「全体を確認」モーダル用。html2canvasを通さない画面表示専用なので、
+  // 通常のCSS（background-image + object-fitに頼らない構造）で問題ない。
+  function buildOverviewSection(kind, label, cls){
+    const byGroup = collectByGroup(kind);
+    const groupsWithData = Object.keys(GROUPS).filter(g => byGroup[g]);
+    let html = `<div class="ov-section-title ${cls}">${label}</div>`;
+    if (groupsWithData.length === 0){
+      html += `<div class="ov-empty">（なし）</div>`;
+      return html;
+    }
+    groupsWithData.forEach(g => {
+      html += `<div class="ov-group-name">${g}</div><div class="ov-grid">`;
+      byGroup[g].forEach(it => {
+        const qtyBadge = it.qty > 1 ? `<span class="ov-qty">×${it.qty}</span>` : "";
+        html += `<div class="ov-card">
+          <div class="ov-thumb" style="background-image:url('${encodePath(it.path)}')">${qtyBadge}</div>
+          <div class="ov-name">${displayRarity(it.rarity)} ${it.member}<br>${it.itemName}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    return html;
+  }
+
+  document.getElementById("btnOverview").addEventListener("click", () => {
+    document.getElementById("overviewContent").innerHTML =
+      buildOverviewSection("give", "譲ります", "give") +
+      buildOverviewSection("want", "求めます", "want");
+    document.getElementById("overviewModal").style.display = "flex";
+  });
+
+  document.getElementById("closeOverviewBtn").addEventListener("click", () => {
+    document.getElementById("overviewModal").style.display = "none";
+  });
+
   // 生成した画像のBlob/URLはここに保持し、共有ボタンを押した時（別のクリック）に使う。
   // navigator.share()はhtml2canvasの完了を待った後に呼ぶとユーザー操作の文脈が切れて
   // iOS Safariで失敗する（NotAllowedError）ため、画像生成と共有を別のクリックに分けている。
@@ -535,9 +763,11 @@
     const today = new Date();
     const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
 
+    const memo = getMemo();
     exportEl.innerHTML =
       `<h2>✨ハロ！コン2026 トレードリスト✨</h2>` +
       `<div class="date">${dateStr}</div>` +
+      (memo ? `<div class="memo-line">${escapeHtml(memo)}</div>` : "") +
       buildExportSection("give", "譲ります", "give") +
       buildExportSection("want", "求めます", "want");
 
