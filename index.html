@@ -131,7 +131,8 @@
 
 <h1>✨ハロ！コン2026 トレードリスト作成✨</h1>
 <div class="sub">カードをタップ：未設定 → 譲 → 求 → 未設定　の順で切り替わります（＋／－で個数を設定できます）</div>
-<div style="text-align:center; margin-bottom:14px;"><a href="history.html" style="font-size:12px; color:#7ab8ff;">📝 トレード履歴を記録する →</a></div>
+<div style="text-align:center; margin-bottom:4px;"><a href="history.html" style="font-size:12px; color:#7ab8ff;">📝 トレード履歴を記録する →</a></div>
+<div style="text-align:center; margin-bottom:14px;"><a href="gacha.html" style="font-size:12px; color:#ffd24a;">🎰 モバガチャで遊ぶ →</a></div>
 
 <div id="underConstruction" style="display:none; text-align:center; padding:60px 16px; color:#aaa;">
   <div style="font-size:48px; margin-bottom:16px;">🚧</div>
@@ -520,11 +521,9 @@
   function buildExportSection(kind, label, cls){
     const byGroup = collectByGroup(kind);
     const groupsWithData = Object.keys(GROUPS).filter(g => byGroup[g]);
+    // 選択が1件もない場合はセクション自体を出さない（「譲」だけ・「求」だけの画像にできるようにする）
+    if (groupsWithData.length === 0) return "";
     let html = `<div class="section-title ${cls}">${label}</div>`;
-    if (groupsWithData.length === 0){
-      html += `<div class="empty">（なし）</div>`;
-      return html;
-    }
     groupsWithData.forEach(g => {
       html += `<div class="group-name">${g}</div><div class="ex-grid">`;
       byGroup[g].forEach(it => {
