@@ -70,6 +70,7 @@
   }
   #btnText { background:#fff; color:#000; }
   #btnImage { background:#4a9eff; color:#fff; }
+  #btnCollage { background:#8a4ad1; color:#fff; }
   #btnResetGroup { background:#333; color:#ccc; }
   #btnResetAll { background:#3a1414; color:#ff8a8a; }
   .hide-names-toggle {
@@ -118,6 +119,8 @@
   #imageExport .ex-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
   /* 景品名を非表示にした時は、その分空いたスペースを使って詰めて並べる */
   #imageExport.compact .ex-grid { grid-template-columns:repeat(6, 1fr); gap:6px; }
+  /* シンプルコラージュ：タイトル・日付・譲求の表記なし、レアリティごとに改行して並べる */
+  #imageExport .collage-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:6px; margin-bottom:12px; }
   #imageExport .ex-card { text-align:center; }
   #imageExport .ex-thumb-wrap {
     position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background-color:#fff;
@@ -154,6 +157,7 @@
   <button id="btnText">📋 テキストで作成</button>
   <button id="btnImage">🖼 画像で保存</button>
   <label class="hide-names-toggle"><input type="checkbox" id="hideNamesToggle"> 景品名を非表示</label>
+  <button id="btnCollage">🎨 コラージュで保存</button>
   <button id="btnResetGroup">このグループをリセット</button>
   <button id="btnResetAll">全てリセット</button>
 </div>
@@ -597,20 +601,45 @@
     });
   }
 
-  document.getElementById("btnImage").addEventListener("click", async () => {
+  // give/want問わず、現在選択されている全アイテムを1つのリストにまとめる（コラージュ用）
+  function collectAllSelected(){
+    const result = [];
+    Object.keys(GROUPS).forEach(g => {
+      ITEMS_BY_GROUP[g].forEach(item => {
+        const st = getState(keyOf(g, item.file));
+        if (st.type !== "none") result.push({ ...item, qty: st.qty });
+      });
+    });
+    return result;
+  }
+
+  // タイトル・日付・譲/求の表記なしで、レアリティごとに改行しながら並べるだけのシンプルなコラージュ
+  function buildSimpleCollage(){
+    const all = collectAllSelected();
+    let html = "";
+    ITEM_TYPES.forEach(t => {
+      const list = all.filter(it => it.itemName === t.name);
+      if (!list.length) return;
+      html += `<div class="collage-grid">`;
+      list.forEach(it => {
+        const qtyBadge = it.qty > 1 ? `<span class="ex-qty-badge">×${it.qty}</span>` : "";
+        html += `<div class="ex-card">
+          <div class="ex-thumb-wrap">
+            <img class="ex-thumb" src="${encodePath(it.path)}" alt="">
+            ${qtyBadge}
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    return html;
+  }
+
+  // 画像の生成〜プレビュー表示までの共通処理。btnImage/btnCollageの両方から使う。
+  async function runImageGeneration(btn, buildContentFn){
     const exportEl = document.getElementById("imageExport");
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+    exportEl.innerHTML = buildContentFn();
 
-    const hideNames = document.getElementById("hideNamesToggle").checked;
-    exportEl.classList.toggle("compact", hideNames);
-    exportEl.innerHTML =
-      `<h2>✨ハロ！コン2026 トレードリスト✨</h2>` +
-      `<div class="date">${dateStr}</div>` +
-      buildExportSection("give", "譲ります", "give", hideNames) +
-      buildExportSection("want", "求めます", "want", hideNames);
-
-    const btn = document.getElementById("btnImage");
     btn.disabled = true;
     const originalLabel = btn.innerText;
     btn.innerText = "作成中...";
@@ -634,6 +663,24 @@
       btn.disabled = false;
       btn.innerText = originalLabel;
     }
+  }
+
+  document.getElementById("btnImage").addEventListener("click", () => {
+    const hideNames = document.getElementById("hideNamesToggle").checked;
+    document.getElementById("imageExport").classList.toggle("compact", hideNames);
+    runImageGeneration(document.getElementById("btnImage"), () => {
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+      return `<h2>✨ハロ！コン2026 トレードリスト✨</h2>` +
+        `<div class="date">${dateStr}</div>` +
+        buildExportSection("give", "譲ります", "give", hideNames) +
+        buildExportSection("want", "求めます", "want", hideNames);
+    });
+  });
+
+  document.getElementById("btnCollage").addEventListener("click", () => {
+    document.getElementById("imageExport").classList.remove("compact");
+    runImageGeneration(document.getElementById("btnCollage"), buildSimpleCollage);
   });
 
   document.getElementById("shareImageBtn").addEventListener("click", async () => {
