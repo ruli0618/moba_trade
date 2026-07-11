@@ -225,6 +225,11 @@
     return rarity.replace(/^R[12]$/, "R");
   }
 
+  // ファイル名には引き続き「目印マーカー」を使うが、画面・テキスト・画像には「アクリルマーカー」と表示する
+  function displayItemName(name){
+    return name === "目印マーカー" ? "アクリルマーカー" : name;
+  }
+
   // テキスト作成で「苗字のみ」を選んだ時に使う、フルネーム→苗字の対応表
   const SURNAME_MAP = {
     "野中美希":"野中", "小田さくら":"小田", "岡村ほまれ":"岡村", "山﨑愛生":"山﨑",
@@ -379,7 +384,7 @@
           <span class="state-badge"></span>
           ${qtyBadge}
         </div>
-        <div class="name">${item.member}<br>${item.itemName}</div>
+        <div class="name">${item.member}<br>${displayItemName(item.itemName)}</div>
         ${qtyControls}
       </div>`;
     }).join("");
@@ -426,7 +431,7 @@
     ITEM_TYPES.forEach(t => {
       const list = items.filter(it => it.itemName === t.name);
       if (!list.length) return;
-      lines.push(t.name);
+      lines.push(displayItemName(t.name));
       lines.push(list.map(it => displayMember(it.member, nameMode) + (it.qty > 1 ? "×" + it.qty : "")).join(" "));
     });
   }
@@ -529,7 +534,7 @@
             <img class="ex-thumb" src="${encodePath(it.path)}" alt="">
             ${qtyBadge}
           </div>
-          <div class="ex-name">${displayRarity(it.rarity)} ${it.member}<br>${it.itemName}</div>
+          <div class="ex-name">${displayRarity(it.rarity)} ${it.member}<br>${displayItemName(it.itemName)}</div>
         </div>`;
       });
       html += `</div>`;
