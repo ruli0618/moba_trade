@@ -72,6 +72,11 @@
   #btnImage { background:#4a9eff; color:#fff; }
   #btnResetGroup { background:#333; color:#ccc; }
   #btnResetAll { background:#3a1414; color:#ff8a8a; }
+  .hide-names-toggle {
+    display:flex; align-items:center; gap:6px; font-size:12px; color:#ccc;
+    background:#1a1a1a; border:1px solid #444; border-radius:8px; padding:9px 12px; cursor:pointer;
+  }
+  .hide-names-toggle input { width:15px; height:15px; }
 
   #resultModal, #imageResultModal {
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.85);
@@ -111,6 +116,8 @@
   #imageExport .section-title.want { border-color:#1f5fa8; color:#1f5fa8; }
   #imageExport .group-name { font-size:13px; color:#4a3b57; font-weight:bold; margin:12px 0 8px; }
   #imageExport .ex-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
+  /* 景品名を非表示にした時は、その分空いたスペースを使って詰めて並べる */
+  #imageExport.compact .ex-grid { grid-template-columns:repeat(6, 1fr); gap:6px; }
   #imageExport .ex-card { text-align:center; }
   #imageExport .ex-thumb-wrap {
     position:relative; width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background-color:#fff;
@@ -146,6 +153,7 @@
 <div class="bottom-bar">
   <button id="btnText">📋 テキストで作成</button>
   <button id="btnImage">🖼 画像で保存</button>
+  <label class="hide-names-toggle"><input type="checkbox" id="hideNamesToggle"> 景品名を非表示</label>
   <button id="btnResetGroup">このグループをリセット</button>
   <button id="btnResetAll">全てリセット</button>
 </div>
@@ -517,7 +525,7 @@
     renderCounts();
   });
 
-  function buildExportSection(kind, label, cls){
+  function buildExportSection(kind, label, cls, hideNames){
     const byGroup = collectByGroup(kind);
     const groupsWithData = Object.keys(GROUPS).filter(g => byGroup[g]);
     // 選択が1件もない場合はセクション自体を出さない（「譲」だけ・「求」だけの画像にできるようにする）
@@ -527,12 +535,13 @@
       html += `<div class="group-name">${g}</div><div class="ex-grid">`;
       byGroup[g].forEach(it => {
         const qtyBadge = it.qty > 1 ? `<span class="ex-qty-badge">×${it.qty}</span>` : "";
+        const nameHtml = hideNames ? "" : `<div class="ex-name">${displayRarity(it.rarity)} ${it.member}<br>${displayItemName(it.itemName)}</div>`;
         html += `<div class="ex-card">
           <div class="ex-thumb-wrap">
             <img class="ex-thumb" src="${encodePath(it.path)}" alt="">
             ${qtyBadge}
           </div>
-          <div class="ex-name">${displayRarity(it.rarity)} ${it.member}<br>${displayItemName(it.itemName)}</div>
+          ${nameHtml}
         </div>`;
       });
       html += `</div>`;
@@ -593,11 +602,13 @@
     const today = new Date();
     const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
 
+    const hideNames = document.getElementById("hideNamesToggle").checked;
+    exportEl.classList.toggle("compact", hideNames);
     exportEl.innerHTML =
       `<h2>✨ハロ！コン2026 トレードリスト✨</h2>` +
       `<div class="date">${dateStr}</div>` +
-      buildExportSection("give", "譲ります", "give") +
-      buildExportSection("want", "求めます", "want");
+      buildExportSection("give", "譲ります", "give", hideNames) +
+      buildExportSection("want", "求めます", "want", hideNames);
 
     const btn = document.getElementById("btnImage");
     btn.disabled = true;
