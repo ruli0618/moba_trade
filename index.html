@@ -142,11 +142,16 @@
   }
   /* 交換完了アイテムに貼る「ありがとう」スタンプ */
   #imageExport .thanks-stamp {
-    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-16deg);
-    background:rgba(214,44,44,.9); color:#fff; font-weight:bold; font-size:12px;
-    padding:3px 10px; border:2px solid #fff; border-radius:4px; white-space:nowrap;
-    letter-spacing:1px; box-shadow:0 2px 5px rgba(0,0,0,.35);
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-10deg);
+    background:linear-gradient(135deg, #fff6f9, #ffe6f0);
+    color:#c2447a; font-weight:bold; font-size:12px; font-style:italic;
+    font-family:"Hiragino Mincho ProN", "Yu Mincho", serif;
+    padding:5px 14px; border:1.5px solid #f0aecb; border-radius:20px; white-space:nowrap;
+    letter-spacing:2px;
+    box-shadow:0 3px 8px rgba(0,0,0,.25), inset 0 0 0 2px rgba(255,255,255,.7);
   }
+  #imageExport .thanks-stamp::before,
+  #imageExport .thanks-stamp::after { content:"♡"; margin:0 4px; color:#ff8fb8; font-style:normal; }
   #imageExport .ex-name { font-size:11px; margin-top:5px; color:#3a2e42; font-weight:bold; line-height:1.3; }
   #imageExport .empty { text-align:center; color:#8a7a90; font-size:12px; padding:10px 0; }
 </style>
