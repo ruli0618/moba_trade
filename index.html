@@ -51,6 +51,13 @@
     position:absolute; bottom:2px; left:2px; font-size:9px; font-weight:bold; padding:1px 5px; border-radius:6px;
     background:rgba(0,0,0,.75); color:#ffd24a;
   }
+  .thanks-btn {
+    position:absolute; top:2px; right:2px; width:18px; height:18px; line-height:16px;
+    border:none; border-radius:50%; background:rgba(0,0,0,.6); font-size:11px; opacity:.55;
+    cursor:pointer; padding:0;
+  }
+  .thanks-btn.is-completed { opacity:1; background:rgba(220,40,40,.85); }
+  .card.is-completed .thumb { opacity:.45; }
   .name { font-size:10px; margin-top:4px; line-height:1.3; color:#eee; }
   .qty-controls { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; }
   .qty-btn {
@@ -133,6 +140,13 @@
     position:absolute; top:4px; right:4px; background:rgba(0,0,0,.8); color:#ffd24a;
     font-size:12px; font-weight:bold; padding:2px 7px; border-radius:6px;
   }
+  /* 交換完了アイテムに貼る「ありがとう」スタンプ */
+  #imageExport .thanks-stamp {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-16deg);
+    background:rgba(214,44,44,.9); color:#fff; font-weight:bold; font-size:12px;
+    padding:3px 10px; border:2px solid #fff; border-radius:4px; white-space:nowrap;
+    letter-spacing:1px; box-shadow:0 2px 5px rgba(0,0,0,.35);
+  }
   #imageExport .ex-name { font-size:11px; margin-top:5px; color:#3a2e42; font-weight:bold; line-height:1.3; }
   #imageExport .empty { text-align:center; color:#8a7a90; font-size:12px; padding:10px 0; }
 </style>
@@ -157,6 +171,7 @@
   <button id="btnText">📋 テキストで作成</button>
   <button id="btnImage">🖼 画像で保存</button>
   <label class="hide-names-toggle"><input type="checkbox" id="hideNamesToggle"> 景品名を非表示</label>
+  <label class="hide-names-toggle"><input type="checkbox" id="repeatQtyToggle"> 複数個は並べて表示</label>
   <button id="btnCollage">🎨 コラージュで保存</button>
   <button id="btnResetGroup">このグループをリセット</button>
   <button id="btnResetAll">全てリセット</button>
@@ -336,6 +351,19 @@
 
   function keyOf(groupKey, file){ return `${groupKey}::${file}`; }
 
+  // 交換が決まった（お礼済み）アイテムの管理。カードの🙏ボタンで手軽にON/OFFできる。
+  const COMPLETED_KEY = "halocon2026-trade-completed";
+  function loadCompleted(){
+    try {
+      const saved = JSON.parse(localStorage.getItem(COMPLETED_KEY));
+      if (saved && typeof saved === "object") return saved;
+    } catch (e) {}
+    return {};
+  }
+  function saveCompleted(){ localStorage.setItem(COMPLETED_KEY, JSON.stringify(completedState)); }
+  function isCompleted(k){ return !!completedState[k]; }
+  let completedState = loadCompleted();
+
   function getState(k){ return state[k] || { type:"none", qty:0 }; }
 
   function setState(k, type, qty){
@@ -383,6 +411,7 @@
     gridEl.innerHTML = items.map(item => {
       const k = keyOf(currentGroup, item.file);
       const st = getState(k);
+      const completed = isCompleted(k);
       const qtyControls = st.type !== "none" ? `
         <div class="qty-controls">
           <button class="qty-btn qty-minus" data-key="${k}">−</button>
@@ -390,11 +419,12 @@
           <button class="qty-btn qty-plus" data-key="${k}">＋</button>
         </div>` : "";
       const qtyBadge = st.qty > 1 ? `<span class="qty-badge">×${st.qty}</span>` : "";
-      return `<div class="card state-${st.type}" data-key="${k}">
+      return `<div class="card state-${st.type} ${completed ? "is-completed" : ""}" data-key="${k}">
         <div class="thumb" style="background-image:url('${encodePath(item.path)}')">
           <span class="rarity-badge rarity-${item.rarity}">${displayRarity(item.rarity)}</span>
           <span class="state-badge"></span>
           ${qtyBadge}
+          <button class="thanks-btn ${completed ? "is-completed" : ""}" data-key="${k}" title="交換完了（ありがとう）">🙏</button>
         </div>
         <div class="name">${item.member}<br>${displayItemName(item.itemName)}</div>
         ${qtyControls}
@@ -403,6 +433,15 @@
   }
 
   gridEl.addEventListener("click", (e) => {
+    const thanksBtn = e.target.closest(".thanks-btn");
+    if (thanksBtn){
+      const k = thanksBtn.dataset.key;
+      if (completedState[k]) delete completedState[k]; else completedState[k] = true;
+      saveCompleted();
+      renderGrid();
+      return;
+    }
+
     const minusBtn = e.target.closest(".qty-minus");
     const plusBtn  = e.target.closest(".qty-plus");
     const card     = e.target.closest(".card");
@@ -427,15 +466,25 @@
   }
 
   function collectByGroup(kind){
-    const result = {}; // groupKey -> [item(+qty)]
+    const result = {}; // groupKey -> [item(+qty+completed)]
     Object.keys(GROUPS).forEach(g => {
       const list = ITEMS_BY_GROUP[g]
-        .map(item => ({ item, s: getState(keyOf(g, item.file)) }))
+        .map(item => ({ item, k: keyOf(g, item.file), s: getState(keyOf(g, item.file)) }))
         .filter(({ s }) => s.type === kind)
-        .map(({ item, s }) => ({ ...item, qty: s.qty }));
+        .map(({ item, k, s }) => ({ ...item, qty: s.qty, completed: isCompleted(k) }));
       if (list.length) result[g] = list;
     });
     return result;
+  }
+
+  // qty>1のアイテムを「×N表記」ではなく個別に並べたい時、qty:1の要素に展開する
+  function expandForDisplay(items, repeatMode){
+    if (!repeatMode) return items;
+    const expanded = [];
+    items.forEach(it => {
+      for (let i = 0; i < it.qty; i++) expanded.push({ ...it, qty: 1 });
+    });
+    return expanded;
   }
 
   // 同じグッズ種類ごとにまとめて「グッズ名」の行→対象メンバーを空白区切りで並べた行、を出力する
@@ -529,7 +578,7 @@
     renderCounts();
   });
 
-  function buildExportSection(kind, label, cls, hideNames){
+  function buildExportSection(kind, label, cls, hideNames, repeatMode){
     const byGroup = collectByGroup(kind);
     const groupsWithData = Object.keys(GROUPS).filter(g => byGroup[g]);
     // 選択が1件もない場合はセクション自体を出さない（「譲」だけ・「求」だけの画像にできるようにする）
@@ -537,13 +586,15 @@
     let html = `<div class="section-title ${cls}">${label}</div>`;
     groupsWithData.forEach(g => {
       html += `<div class="group-name">${g}</div><div class="ex-grid">`;
-      byGroup[g].forEach(it => {
+      expandForDisplay(byGroup[g], repeatMode).forEach(it => {
         const qtyBadge = it.qty > 1 ? `<span class="ex-qty-badge">×${it.qty}</span>` : "";
         const nameHtml = hideNames ? "" : `<div class="ex-name">${displayRarity(it.rarity)} ${it.member}<br>${displayItemName(it.itemName)}</div>`;
+        const thanksStamp = it.completed ? `<div class="thanks-stamp">ありがとう</div>` : "";
         html += `<div class="ex-card">
           <div class="ex-thumb-wrap">
             <img class="ex-thumb" src="${encodePath(it.path)}" alt="">
             ${qtyBadge}
+            ${thanksStamp}
           </div>
           ${nameHtml}
         </div>`;
@@ -606,27 +657,30 @@
     const result = [];
     Object.keys(GROUPS).forEach(g => {
       ITEMS_BY_GROUP[g].forEach(item => {
-        const st = getState(keyOf(g, item.file));
-        if (st.type !== "none") result.push({ ...item, qty: st.qty });
+        const k = keyOf(g, item.file);
+        const st = getState(k);
+        if (st.type !== "none") result.push({ ...item, qty: st.qty, completed: isCompleted(k) });
       });
     });
     return result;
   }
 
   // タイトル・日付・譲/求の表記なしで、レアリティごとに改行しながら並べるだけのシンプルなコラージュ
-  function buildSimpleCollage(){
+  function buildSimpleCollage(repeatMode){
     const all = collectAllSelected();
     let html = "";
     ITEM_TYPES.forEach(t => {
-      const list = all.filter(it => it.itemName === t.name);
+      const list = expandForDisplay(all.filter(it => it.itemName === t.name), repeatMode);
       if (!list.length) return;
       html += `<div class="collage-grid">`;
       list.forEach(it => {
         const qtyBadge = it.qty > 1 ? `<span class="ex-qty-badge">×${it.qty}</span>` : "";
+        const thanksStamp = it.completed ? `<div class="thanks-stamp">ありがとう</div>` : "";
         html += `<div class="ex-card">
           <div class="ex-thumb-wrap">
             <img class="ex-thumb" src="${encodePath(it.path)}" alt="">
             ${qtyBadge}
+            ${thanksStamp}
           </div>
         </div>`;
       });
@@ -667,20 +721,22 @@
 
   document.getElementById("btnImage").addEventListener("click", () => {
     const hideNames = document.getElementById("hideNamesToggle").checked;
+    const repeatMode = document.getElementById("repeatQtyToggle").checked;
     document.getElementById("imageExport").classList.toggle("compact", hideNames);
     runImageGeneration(document.getElementById("btnImage"), () => {
       const today = new Date();
       const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
       return `<h2>✨ハロ！コン2026 トレードリスト✨</h2>` +
         `<div class="date">${dateStr}</div>` +
-        buildExportSection("give", "譲ります", "give", hideNames) +
-        buildExportSection("want", "求めます", "want", hideNames);
+        buildExportSection("give", "譲ります", "give", hideNames, repeatMode) +
+        buildExportSection("want", "求めます", "want", hideNames, repeatMode);
     });
   });
 
   document.getElementById("btnCollage").addEventListener("click", () => {
+    const repeatMode = document.getElementById("repeatQtyToggle").checked;
     document.getElementById("imageExport").classList.remove("compact");
-    runImageGeneration(document.getElementById("btnCollage"), buildSimpleCollage);
+    runImageGeneration(document.getElementById("btnCollage"), () => buildSimpleCollage(repeatMode));
   });
 
   document.getElementById("shareImageBtn").addEventListener("click", async () => {
